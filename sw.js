@@ -1,6 +1,6 @@
 /* Cache simples para o app funcionar offline depois da primeira visita.
    Ao publicar uma versão nova, aumente o número de VERSION. */
-const VERSION = "ingles12-v1";
+const VERSION = "ingles12-v2";
 const ASSETS = [
   "./",
   "./index.html",

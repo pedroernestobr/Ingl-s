@@ -6,8 +6,8 @@
   "start_url": "./#hoje",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f4f5f8",
-  "theme_color": "#151b2c",
+  "background_color": "#f2f2f7",
+  "theme_color": "#f2f2f7",
   "icons": [
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]

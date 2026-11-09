@@ -2,6 +2,8 @@
 
 Um app web para aprender inglês em 84 dias, do nível A1 ao B1, com lições curtas todos os dias.
 
+O visual segue o padrão da Apple (Human Interface Guidelines): fonte do sistema (SF Pro no iPhone, iPad e Mac), cores do iOS, título grande que encolhe ao rolar, listas agrupadas, tab bar translúcida no iPhone, barra lateral no iPad e no Mac, anéis de atividade e alertas no estilo iOS. Os temas claro e escuro seguem o aparelho.
+
 Não precisa de cadastro, servidor ou instalação: o progresso fica salvo no próprio navegador. Funciona no celular, pode ser instalado na tela inicial e continua funcionando offline depois da primeira visita.
 
 ## Como usar
@@ -37,8 +39,8 @@ Ao todo são 240 palavras e expressões, 120 frases de shadowing, 120 exercício
 
 ## Telas
 
-- **Hoje:** próxima atividade, meta de minutos do dia, sequência, cartões para revisar, dias da semana e jornada de 12 semanas.
-- **Plano:** as 3 fases e as 12 semanas, com acesso a qualquer dia.
+- **Hoje:** próxima atividade, anéis de atividade do dia (minutos, lição e revisão), cartões para revisar, dias da semana e jornada de 12 semanas.
+- **Plano:** as 3 fases e as 12 semanas. Cada semana abre uma página própria com os 7 dias, a gramática e as missões de imersão.
 - **Revisar:** revisão espaçada, distribuição dos cartões nas 5 caixas, vocabulário com busca e treino livre.
 - **Progresso:** estatísticas, execução por semana, calendário de 84 dias, checkpoints e diário de escrita.
 - **Método:** explicação do método dentro do app.
@@ -62,7 +64,7 @@ Todo o conteúdo está em `js/curriculum.js`, e o formato está explicado no in�
 
 ```
 index.html            entrada do app
-css/styles.css        visual: tokens de cor (claro e escuro), layout e componentes
+css/styles.css        visual no padrão Apple: cores do sistema (claro e escuro), tipografia e componentes
 js/curriculum.js      conteúdo das 12 semanas
 js/store.js           progresso, repetição espaçada (Leitner) e estatísticas
 js/speech.js          áudio (voz do aparelho) e reconhecimento de fala
