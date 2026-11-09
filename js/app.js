@@ -59,6 +59,11 @@
     wave: '<path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/>',
     person: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4.5a3 3 0 0 0 3.5 4M16 6h3.5a3 3 0 0 1-3.5 4M12 13v4M8 21h8M9.5 17h5v4h-5z"/>',
+    star: '<path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6L12 17l-5.38 2.85 1.03-6L3.3 9.6l6-.9z" fill="currentColor" stroke="none"/>',
+    lock: '<rect x="5" y="10.5" width="14" height="10.5" rx="2.5" fill="currentColor" stroke="none"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
+    bolt: '<path d="M13.5 2 4.5 13.5H11L10 22l9.5-12H13z" fill="currentColor" stroke="none"/>',
+    flameFill: '<path d="M12 21.5c4.1 0 7.2-2.8 7.2-6.8 0-3.2-2.1-5.6-3.7-7.2-.4 2-1.5 3.4-3 4C12.8 7.7 11 4.6 8.4 3c.3 3.1-1.8 5.2-3.1 7.1a7.4 7.4 0 0 0-.5 4.5c0 4 3.1 6.9 7.2 6.9z" fill="currentColor" stroke="none"/>',
+    route: '<circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="5" r="2.2"/><path d="M8.2 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.8"/>',
     bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>'
   };
   const icon = (name, cls) => '<svg class="icon ' + (cls || "") + '" viewBox="0 0 24 24" aria-hidden="true">' + ICON[name] + "</svg>";
@@ -135,7 +140,7 @@
 
   /* ───────── Navegação ───────── */
   const NAV = [
-    { id: "hoje", label: "Hoje", icon: "home" },
+    { id: "trilha", label: "Trilha", icon: "route" },
     { id: "plano", label: "Plano", icon: "calendar" },
     { id: "revisar", label: "Revisar", icon: "cards" },
     { id: "progresso", label: "Progresso", icon: "chart" },
@@ -162,6 +167,7 @@
     $$("[data-nav]").forEach((a) => { if (a.dataset.nav === navId) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     const due = S.dueIds().length;
     $$('[data-badge="revisar"]').forEach((b) => { b.hidden = due === 0; b.textContent = due > 99 ? "99+" : due; });
+    $("#navbar").hidden = !!meta.hideNav;
     $("#nav-title").textContent = meta.title;
     $("#nav-left").innerHTML = meta.back ? '<a class="back-btn" href="' + meta.back[0] + '">' + icon("chevL") + esc(meta.back[1]) + "</a>" : "";
     const foot = $("#side-foot");
@@ -179,7 +185,8 @@
     const h = (location.hash || "").slice(1);
     const m = /^semana-(\d+)$/.exec(h);
     if (m) return { view: "semana", week: clamp(+m[1], 1, S.WEEKS) };
-    return { view: VIEWS[h] ? h : "hoje" };
+    if (h === "hoje") return { view: "trilha" };
+    return { view: VIEWS[h] ? h : "trilha" };
   }
 
   function render() {
@@ -188,8 +195,10 @@
     if (!$("#view")) renderShell();
     const r = route();
     const out = VIEWS[r.view](r);
+    closePopover();
     $("#view").innerHTML = out.html;
     updateChrome(r, out.meta);
+    if (out.after) out.after();
   }
 
   function initial() {
@@ -241,7 +250,7 @@
       S.state.profile = { name: $("#ob-name").value.trim(), goalMin: chosen, startDate: $("#ob-start").value || S.today(), createdAt: new Date().toISOString() };
       S.save();
       $("#app").innerHTML = "";
-      location.hash = "hoje";
+      location.hash = "trilha";
       render();
     });
   }
@@ -284,83 +293,150 @@
     return s + "</svg>";
   }
 
-  /* ───────── Hoje ───────── */
-  function viewHoje() {
-    const st = S.state;
+  /* ───────── Trilha ───────── */
+  const PATH_X = [0, 48, 76, 48, 0, -48, -76];
+  const STEP_Y = 96, PAD_Y = 30;
+  const nodeSize = (d) => (d === 7 ? 78 : 68);
+  const KIND_ICON = { lesson: "star", immersion: "headphones", review: "trophy" };
+
+  function isLocked(id) {
     const nid = S.nextId();
-    const due = S.dueIds().length;
+    if (!nid || S.isDone(id)) return false;
+    const ids = S.allIds();
+    return ids.indexOf(id) > ids.indexOf(nid);
+  }
+  function nodeState(id, nid) {
+    if (S.isDone(id)) return "done";
+    if (id === nid) return "current";
+    return "locked";
+  }
+  function daySummary(w, d) {
+    const kind = S.dayKind(d);
+    if (kind === "lesson") return '<span lang="en">' + esc(S.week(w).days[d - 1].vocab.map((v) => v[0]).join(" · ")) + "</span>";
+    if (kind === "immersion") return "Maratona de shadowing e 3 missões";
+    const cp = S.state.checkpoints["w" + w];
+    return cp ? "Checkpoint: " + cp.score + "/" + cp.total + " acertos" : "Checkpoint, autoavaliação e placar";
+  }
+
+  function todayCard() {
+    const st = S.state;
     const act = st.activity[S.today()] || { min: 0, lessons: 0, reviews: 0 };
     const goal = st.profile.goalMin;
+    const due = S.dueIds().length;
     const words = S.totals().words;
-    const date = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
-
-    let feature, wkN;
-    if (nid) {
-      const { w, d } = S.parseId(nid);
-      wkN = w;
-      const wk = S.week(w);
-      const kind = S.dayKind(d);
-      feature =
-        '<article class="feature" aria-labelledby="next-title"><div class="feature-head">' +
-        '<p class="eyebrow tint">Semana ' + w + " · Dia " + d + " · " + kindLabel(kind) + "</p>" +
-        '<h2 class="title1" id="next-title">' + esc(S.dayTitle(w, d)) + "</h2>" +
-        '<p class="subhead secondary">' + esc(wk.title) + ' · <span lang="en">' + esc(wk.en) + "</span></p></div>" +
-        '<div class="feature-meta">' + contents(kind).map((c) => '<span class="tag">' + c + "</span>").join("") + "</div>" +
-        '<button class="btn btn-filled btn-large" data-action="start" data-id="' + nid + '">' + icon("play") + "Começar</button>" +
-        '<p class="footnote secondary center">' + estimate(kind) + "</p></article>";
-    } else {
-      wkN = S.WEEKS;
-      feature =
-        '<article class="feature"><div class="feature-head"><p class="eyebrow tint">84 de 84 dias</p><h2 class="title1">Você concluiu as 12 semanas</h2>' +
-        '<p class="subhead secondary">Continue revisando os cartões todo dia e converse em inglês pelo menos 3 vezes por semana.</p></div>' +
-        '<a class="btn btn-tinted btn-large" href="#progresso">Ver minha evolução</a></article>';
-    }
-
     const reviewTotal = act.reviews + due;
     const rv = reviewTotal ? act.reviews / reviewTotal : words ? 1 : 0;
-    const rings =
-      '<div class="card rings-card">' + ringsSvg([act.min / goal, act.lessons ? 1 : 0, rv]) +
+    return '<div class="card rings-card">' + ringsSvg([act.min / goal, act.lessons ? 1 : 0, rv]) +
       '<div class="ring-legend">' +
       '<div><p class="rl-label" style="color:var(--pink)">Minutos</p><p class="rl-value">' + act.min + "<small>/" + goal + " MIN</small></p></div>" +
       '<div><p class="rl-label" style="color:var(--green)">Lição</p><p class="rl-value">' + Math.min(act.lessons, 9) + "<small>/1</small></p></div>" +
       '<div><p class="rl-label" style="color:var(--cyan)">Revisão</p><p class="rl-value">' + (reviewTotal ? act.reviews + "<small>/" + reviewTotal + "</small>" : words ? "<small>EM DIA</small>" : "<small>—</small>") + "</p></div>" +
       "</div></div>";
+  }
 
-    const reviewCell = due
-      ? cell({ action: "review", icon: "cards", color: "orange", title: "Revisar cartões", sub: "Uns " + Math.max(1, Math.round(due / 4)) + " min. Faça antes da lição.", trail: '<span class="badge num">' + due + "</span>", chevron: true })
-      : cell({ icon: "cards", color: "orange", title: words ? "Revisões em dia" : "Nenhum cartão ainda", sub: words ? "Amanhã: " + plural(S.dueTomorrow(), "cartão", "cartões") + "." : "Cada lição adiciona 4 palavras para revisar a partir de amanhã." });
-
-    const wk = S.week(wkN);
-    const days = [];
-    for (let d = 1; d <= 7; d++) {
-      const id = S.lessonId(wkN, d);
-      const done = S.isDone(id);
-      days.push('<button class="wd ' + (done ? "done" : id === nid ? "current" : "") + '" data-action="start" data-id="' + id + '" aria-label="Dia ' + d + ": " + esc(S.dayTitle(wkN, d)) + (done ? ", concluído" : "") + '"><span class="dot">' + icon("check") + "</span>D" + d + "</button>");
+  function unitHtml(w, p, nid) {
+    const wk = S.week(w);
+    const pts = [];
+    for (let d = 1; d <= 7; d++) { const s = nodeSize(d); pts.push({ d, x: PATH_X[d - 1], y: PAD_Y + (d - 1) * STEP_Y + s / 2, s }); }
+    const H = PAD_Y + 6 * STEP_Y + nodeSize(7) + 40;
+    let svg = '<svg class="path-line" width="400" height="' + H + '" viewBox="-200 0 400 ' + H + '" aria-hidden="true">';
+    for (let i = 0; i < 6; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const on = S.isDone(S.lessonId(w, a.d));
+      svg += '<path class="seg' + (on ? " on" : "") + '" d="M' + a.x + " " + a.y + " C" + a.x + " " + (a.y + 50) + " " + b.x + " " + (b.y - 50) + " " + b.x + " " + b.y + '"/>';
     }
-    const ex = S.execution(wkN);
+    svg += "</svg>";
+    const done = S.weekDone(w);
+    const nodes = pts.map((pt) => {
+      const id = S.lessonId(w, pt.d);
+      const state = nodeState(id, nid);
+      const kind = S.dayKind(pt.d);
+      const top = pt.y - pt.s / 2;
+      let extra = "";
+      if (state === "current") {
+        const r = pt.s / 2 + 8, c = 2 * Math.PI * r, box = pt.s + 22;
+        extra = '<svg class="node-ring" viewBox="0 0 ' + box + " " + box + '" aria-hidden="true"><circle class="track" cx="' + box / 2 + '" cy="' + box / 2 + '" r="' + r + '" fill="none" stroke-width="6"/>' +
+          (done ? '<circle class="val" cx="' + box / 2 + '" cy="' + box / 2 + '" r="' + r + '" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + (c * (1 - done / 7)).toFixed(1) + '" transform="rotate(-90 ' + box / 2 + " " + box / 2 + ')"/>' : "") + "</svg>" +
+          '<span class="node-bubble ' + (pt.x >= 0 ? "left" : "right") + '">' + (pt.d === 1 && w === 1 && !S.totals().lessons ? "Comece aqui" : "Começar") + "</span>";
+      }
+      if (state === "done") extra = '<span class="node-check">' + icon("check") + "</span>";
+      const glyph = state === "locked" && kind === "lesson" ? "lock" : KIND_ICON[kind];
+      return '<button class="node ' + state + " " + kind + '" data-action="node" data-id="' + id + '" data-x="' + pt.x + '" data-top="' + top + '" data-size="' + pt.s + '"' +
+        ' style="top:' + top + "px;left:calc(50% + " + (pt.x - pt.s / 2) + "px);width:" + pt.s + "px;height:" + pt.s + 'px"' +
+        ' aria-label="Dia ' + pt.d + ": " + esc(S.dayTitle(w, pt.d)) + ", " + { done: "concluído", current: "próxima atividade", locked: "bloqueado" }[state] + '">' +
+        icon(glyph) + extra + "</button>";
+    }).join("");
+    return '<section class="unit" style="--c:var(--phase-' + p.n + ')" id="u' + w + '">' +
+      '<header class="unit-head"><div><p class="unit-eyebrow">Fase ' + p.n + ", semana " + w + " · " + done + '/7</p><h2 class="unit-title">' + esc(wk.title) + "</h2></div>" +
+      '<a class="unit-guide" href="#semana-' + w + '" aria-label="Guia da semana ' + w + '">' + icon("book") + "</a></header>" +
+      '<div class="unit-path" style="height:' + H + 'px">' + svg + nodes + "</div></section>";
+  }
 
-    const journey = [];
-    for (let w = 1; w <= S.WEEKS; w++) {
-      const pct = Math.round((S.weekDone(w) / 7) * 100);
-      journey.push('<span class="' + (w === wkN && nid ? "now" : "") + '" title="Semana ' + w + ": " + pct + '%"><i style="width:' + pct + '%"></i></span>');
+  function viewTrilha() {
+    const st = S.state;
+    const nid = S.nextId();
+    const due = S.dueIds().length;
+    const t = S.totals();
+    const streak = S.streak();
+    const activeToday = !!st.activity[S.today()];
+    let html = '<div class="statbar">' +
+      '<a class="avatar" href="#ajustes" aria-label="Ajustes">' + initial() + "</a>" +
+      '<div class="stats">' +
+      '<a class="stat flame' + (activeToday ? " on" : "") + '" href="#progresso" aria-label="Sequência de ' + plural(streak, "dia", "dias") + '">' + icon("flameFill") + "<span>" + streak + "</span></a>" +
+      '<a class="stat xp" href="#progresso" aria-label="' + t.xp + ' pontos de experiência">' + icon("bolt") + "<span>" + t.xp + "</span></a>" +
+      '<a class="stat cards' + (due ? " due" : "") + '" href="#revisar" aria-label="' + plural(due, "cartão", "cartões") + ' para revisar">' + icon("cards") + "<span>" + due + "</span></a>" +
+      "</div></div>";
+    if (!S.storageOk) html += '<p class="tag" style="color:var(--orange-text);background:var(--orange-tint)">Este navegador não está salvando seu progresso (modo privado?).</p>';
+    C.phases.forEach((p) => {
+      html += '<div class="phase-divider"><span>Fase ' + p.n + " · " + esc(p.name) + " · " + p.cefr + "</span></div>";
+      for (let w = p.weeks[0]; w <= p.weeks[1]; w++) html += unitHtml(w, p, nid);
+    });
+    html += '<div class="path-end">' + icon("trophy") + '<p class="headline">Fim da trilha</p><p class="subhead secondary">Uma conversa de 5 minutos em inglês.</p></div>';
+    return { html, meta: { title: "Trilha", hideNav: true }, after: scrollToCurrent };
+  }
+
+  function scrollToCurrent() {
+    requestAnimationFrame(() => {
+      const n = $(".node.current");
+      if (!n) return;
+      const r = n.getBoundingClientRect();
+      window.scrollTo(0, Math.max(0, window.scrollY + r.top - window.innerHeight * 0.45));
+    });
+  }
+
+  function closePopover() {
+    const p = $(".popover");
+    if (p) p.remove();
+    $$(".node.open-pop").forEach((n) => n.classList.remove("open-pop"));
+  }
+
+  function openPopover(el) {
+    const had = el.classList.contains("open-pop");
+    closePopover();
+    if (had) return;
+    const id = el.dataset.id;
+    const { w, d } = S.parseId(id);
+    const kind = S.dayKind(d);
+    const state = nodeState(id, S.nextId());
+    const pop = document.createElement("div");
+    pop.className = "popover";
+    pop.setAttribute("role", "dialog");
+    pop.style.top = (+el.dataset.top + +el.dataset.size + 16) + "px";
+    pop.style.setProperty("--ax", el.dataset.x + "px");
+    let action;
+    if (state === "locked") {
+      action = '<p class="footnote secondary">Conclua as atividades anteriores da trilha para liberar.</p>' +
+        '<button class="btn btn-plain" data-action="start" data-id="' + id + '" data-force="1">Abrir mesmo assim</button>';
+    } else {
+      action = '<button class="btn btn-filled btn-large" data-action="start" data-id="' + id + '" data-force="1">' + icon("play") + (state === "done" ? "Refazer" : "Começar") + "</button>";
     }
-
-    const html =
-      ltHeader("Hoje", { eyebrow: esc(date) }) +
-      (S.storageOk ? "" : '<p class="tag" style="color:var(--orange-text);background:var(--orange-tint)">Este navegador não está salvando seu progresso (modo privado?).</p>') +
-      feature +
-      section("Atividade de hoje", rings, "Sequência: " + plural(S.streak(), "dia seguido", "dias seguidos") + ". O anel azul fecha quando não há cartões pendentes.") +
-      section("Revisão", list([reviewCell], "icons")) +
-      section("Semana " + wkN + " · " + esc(wk.title),
-        '<div class="card" style="display:flex;flex-direction:column;gap:16px"><div class="week-days">' + days.join("") + "</div>" +
-        '<div class="exec-row"><span class="secondary">Execução</span>' + progressBar(ex, true) + "<b>" + ex + "%</b></div></div>" +
-        list([cell({ href: "#semana-" + wkN, icon: "target", color: "red", title: "Meta da semana", sub: esc(wk.goal), chevron: true })], "icons"),
-        calendarNote(wkN)) +
-      section("Jornada de 12 semanas",
-        '<div class="card" style="display:flex;flex-direction:column;gap:10px"><div class="journey-bar">' + journey.join("") + "</div>" +
-        '<div class="journey-labels caption secondary">' + C.phases.map((p) => "<span>" + esc(p.name) + " · " + p.cefr + "</span>").join("") + "</div></div>",
-        S.totals().lessons + " de " + S.TOTAL_DAYS + " dias concluídos.");
-    return { html, meta: { title: "Hoje" } };
+    pop.innerHTML = '<p class="eyebrow">Dia ' + d + " · " + kindLabel(kind) + " · " + estimate(kind) + "</p>" +
+      '<p class="title3">' + esc(S.dayTitle(w, d)) + '</p><p class="subhead secondary">' + daySummary(w, d) + "</p>" + action;
+    el.parentElement.appendChild(pop);
+    el.classList.add("open-pop");
+    const r = pop.getBoundingClientRect();
+    const limit = window.innerHeight - 90;
+    if (r.bottom > limit) window.scrollBy({ top: r.bottom - limit, behavior: "smooth" });
   }
 
   /* ───────── Plano ───────── */
@@ -399,16 +475,10 @@
       const id = S.lessonId(w, d);
       const kind = S.dayKind(d);
       const done = S.isDone(id);
-      let sub;
-      if (kind === "lesson") sub = '<span lang="en">' + esc(wk.days[d - 1].vocab.map((v) => v[0]).join(" · ")) + "</span>";
-      else if (kind === "immersion") sub = "Maratona de shadowing e 3 missões";
-      else {
-        const cp = S.state.checkpoints["w" + w];
-        sub = cp ? "Checkpoint: " + cp.score + "/" + cp.total + " acertos" : "Checkpoint, autoavaliação e placar";
-      }
+      const sub = daySummary(w, d);
       rows.push(cell({
         action: "start", attrs: 'data-id="' + id + '"',
-        lead: '<span class="status ' + (done ? "done" : id === nid ? "next" : "") + '">' + icon("check") + "</span>",
+        lead: '<span class="status ' + (done ? "done" : id === nid ? "next" : "locked") + '">' + icon(done || id === nid ? "check" : "lock") + "</span>",
         title: "Dia " + d + " · " + esc(S.dayTitle(w, d)), sub,
         value: done ? "Feito" : id === nid ? '<span style="color:var(--blue)">Próxima</span>' : "",
         chevron: true
@@ -451,7 +521,7 @@
     } else if (total) {
       hero = '<div class="card pad-lg" style="display:flex;flex-direction:column;gap:6px"><p class="title2">Tudo revisado</p><p class="subhead secondary">Amanhã: ' + plural(S.dueTomorrow(), "cartão", "cartões") + ".</p></div>";
     } else {
-      hero = '<div class="card pad-lg" style="display:flex;flex-direction:column;gap:12px"><p class="title2">Nenhum cartão ainda</p><p class="subhead secondary">Cada lição concluída adiciona 4 palavras. Elas voltam amanhã e depois em intervalos cada vez maiores.</p><a class="btn btn-tinted btn-large" href="#hoje">Fazer a próxima lição</a></div>';
+      hero = '<div class="card pad-lg" style="display:flex;flex-direction:column;gap:12px"><p class="title2">Nenhum cartão ainda</p><p class="subhead secondary">Cada lição concluída adiciona 4 palavras. Elas voltam amanhã e depois em intervalos cada vez maiores.</p><a class="btn btn-tinted btn-large" href="#trilha">Fazer a próxima lição</a></div>';
     }
 
     const boxes = '<div class="card"><div class="boxes" role="img" aria-label="Cartões por caixa: ' + counts.map((n, i) => "caixa " + (i + 1) + ", " + n).join("; ") + '">' +
@@ -493,10 +563,10 @@
     const streak = S.streak();
 
     const tiles = [
-      ["textformat", "orange", "Palavras", t.words, ""],
-      ["calendar", "blue", "Dias", t.lessons, "/" + S.TOTAL_DAYS],
-      ["clock", "pink", "Estudo", mins.v, mins.u],
-      ["flame", "red", "Sequência", streak, streak === 1 ? "dia" : "dias"]
+      ["flame", "orange", "Sequência", streak, streak === 1 ? "dia" : "dias"],
+      ["zap", "yellow", "Pontos", t.xp, "XP"],
+      ["textformat", "blue", "Palavras", t.words, ""],
+      ["clock", "pink", "Estudo", mins.v, mins.u]
     ].map((x) => '<div class="tile"><p class="tile-head" style="color:var(--' + x[1] + ')">' + icon(x[0]) + x[2] + '</p><p class="tile-value">' + x[3] + "<small>" + x[4] + "</small></p></div>").join("");
 
     // Execução semanal: barras com meta de 85%
@@ -560,6 +630,7 @@
 
     const html =
       ltHeader("Progresso", { eyebrow: "Seu placar" }) +
+      section("Hoje", todayCard(), "O anel azul fecha quando não há cartões pendentes. " + t.lessons + " de " + S.TOTAL_DAYS + " dias concluídos.") +
       '<div class="tiles">' + tiles + "</div>" +
       section("Execução semanal", '<div class="card chart">' + svg + "</div>", "Dias feitos ÷ 7. Fazer 6 de 7 dias (86%) mantém o ritmo das 12 semanas.") +
       section("Calendário de 84 dias", '<div class="card" style="display:flex;flex-direction:column;gap:12px"><div class="heat" role="img" aria-label="Minutos de estudo por dia nas 12 semanas">' + heat + "</div>" +
@@ -641,7 +712,7 @@
     return { html, meta: { title: "Ajustes" } };
   }
 
-  const VIEWS = { hoje: viewHoje, plano: viewPlano, semana: viewSemana, revisar: viewRevisar, progresso: viewProgresso, metodo: viewMetodo, ajustes: viewAjustes };
+  const VIEWS = { trilha: viewTrilha, plano: viewPlano, semana: viewSemana, revisar: viewRevisar, progresso: viewProgresso, metodo: viewMetodo, ajustes: viewAjustes };
 
   /* ═══════════════════════ PLAYER ═══════════════════════ */
 
@@ -989,11 +1060,12 @@
         title = P.kind === "immersion" ? "Imersão concluída" : "Lição concluída";
         lead = "Sequência de " + plural(S.streak(), "dia", "dias") + "." + (P.kind === "lesson" ? " As palavras novas voltam amanhã." : "");
       }
+      const xp = ["+" + P.xp, "XP"];
       const stats = P.mode === "review"
-        ? [[P.reviewed, "cartões"], [P.easy, "acertos"], [P.minutes, "min"]]
-        : P.kind === "lesson" ? [[4, "palavras"], [P.correct + "/" + P.total, "acertos"], [P.minutes, "min"]]
-          : P.kind === "review" ? [[P.correct + "/" + P.total, "checkpoint"], [S.execution(P.w) + "%", "execução"], [t.words, "palavras"]]
-            : [[P.steps.find((s) => s.type === "marathon").checked.filter(Boolean).length, "frases"], [P.writes.length ? wordCount(P.writes[0].text) : 0, "palavras escritas"], [P.minutes, "min"]];
+        ? [xp, [P.reviewed, "cartões"], [P.minutes, "min"]]
+        : P.kind === "lesson" ? [xp, [P.correct + "/" + P.total, "acertos"], [P.minutes, "min"]]
+          : P.kind === "review" ? [xp, [P.correct + "/" + P.total, "checkpoint"], [S.execution(P.w) + "%", "execução"]]
+            : [xp, [P.steps.find((s) => s.type === "marathon").checked.filter(Boolean).length, "frases"], [P.minutes, "min"]];
       el.innerHTML = '<div class="step-head finish"><span class="finish-icon">' + icon("checkFill") + "</span>" +
         '<h1 class="title1">' + esc(title) + '</h1><p class="body secondary">' + esc(lead) + "</p></div>" +
         '<div class="summary center">' + stats.map((s) => "<div><b>" + s[0] + "</b><small>" + s[1] + "</small></div>").join("") + "</div>";
@@ -1037,15 +1109,16 @@
 
   function completeSession() {
     P.minutes = clamp(Math.round((Date.now() - P.startedAt) / 60000), 1, 60);
+    P.xp = P.mode === "review" ? P.reviewed : P.kind === "lesson" ? 10 + P.correct + P.reviewed : P.kind === "immersion" ? 15 + P.reviewed : 20 + P.correct;
     const st = S.state;
     if (P.mode === "review") {
-      S.logActivity({ min: P.minutes, reviews: P.reviewed });
+      S.logActivity({ min: P.minutes, reviews: P.reviewed, xp: P.xp });
     } else {
       st.lessons[P.id] = { at: S.today(), correct: P.correct, total: P.total, minutes: P.minutes };
       if (P.kind === "lesson") S.addCards(P.wk.days[P.d - 1].vocab.map((_, i) => S.cardId(P.w, P.d, i)));
       if (P.kind === "review") st.checkpoints["w" + P.w] = { score: P.correct, total: P.total, at: S.today(), selfcheck: P.selfcheck, worked: P.worked || "", change: P.change || "" };
       P.writes.forEach((w) => st.journal.push({ id: Date.now() + Math.random(), lesson: P.id, date: S.today(), prompt: w.prompt, text: w.text, label: w.label }));
-      S.logActivity({ min: P.minutes, lessons: 1, reviews: P.reviewed });
+      S.logActivity({ min: P.minutes, lessons: 1, reviews: P.reviewed, xp: P.xp });
     }
     S.save();
   }
@@ -1053,11 +1126,21 @@
   /* ═══════════════════════ EVENTOS ═══════════════════════ */
 
   const ACTIONS = {
-    start(el) { openPlayer(buildSession(el.dataset.id)); },
+    async start(el) {
+      const id = el.dataset.id;
+      if (!el.dataset.force && isLocked(id)) {
+        const n = S.parseId(S.nextId());
+        const ok = await alertDialog({ title: "Atividade bloqueada", text: "A próxima da trilha é a semana " + n.w + ", dia " + n.d + " (" + S.dayTitle(n.w, n.d) + "). Quer abrir esta mesmo assim?", ok: "Abrir", cancel: "Agora não" });
+        if (!ok) return;
+      }
+      closePopover();
+      openPlayer(buildSession(id));
+    },
+    node(el) { openPopover(el); },
     review() { if (S.dueIds().length) openPlayer(buildReview(false)); else toast("Nenhum cartão para revisar agora."); },
     practice() { if (Object.keys(S.state.cards).length) openPlayer(buildReview(true)); else toast("Faça uma lição para ter cartões."); },
     "player-close"() { requestClose(); },
-    "player-done"() { closePlayer(); if (location.hash !== "#hoje") location.hash = "hoje"; window.scrollTo(0, 0); },
+    "player-done"() { closePlayer(); if (location.hash !== "#trilha") location.hash = "trilha"; },
     "next-lesson"() { const nid = S.nextId(); closePlayer(); if (nid) openPlayer(buildSession(nid)); },
     next() {
       const step = P && P.steps[P.i];
@@ -1238,6 +1321,7 @@
   };
 
   document.addEventListener("click", (e) => {
+    if (!e.target.closest(".popover, .node")) closePopover();
     const el = e.target.closest("[data-action]");
     if (!el || el.disabled) return;
     const fn = ACTIONS[el.dataset.action];
@@ -1335,6 +1419,7 @@
   }
 
   /* ───────── Início ───────── */
+  try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch (e) { /* ignora */ }
   S.save();
   render();
 })();

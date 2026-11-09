@@ -144,8 +144,9 @@
   /* ───────── Atividade e estatísticas ───────── */
   function logActivity(patch) {
     const t = today();
-    const a = state.activity[t] || { min: 0, lessons: 0, reviews: 0 };
+    const a = state.activity[t] || { min: 0, lessons: 0, reviews: 0, xp: 0 };
     a.min += patch.min || 0;
+    a.xp = (a.xp || 0) + (patch.xp || 0);
     a.lessons += patch.lessons || 0;
     a.reviews += patch.reviews || 0;
     state.activity[t] = a;
@@ -163,10 +164,11 @@
 
   function totals() {
     const minutes = Object.values(state.activity).reduce((s, a) => s + a.min, 0);
+    const xp = Object.values(state.activity).reduce((s, a) => s + (a.xp || 0), 0);
     const lessons = Object.keys(state.lessons).length;
     const words = Object.keys(state.cards).length;
     const mastered = Object.values(state.cards).filter((c) => c.box >= 4).length;
-    return { minutes, lessons, words, mastered };
+    return { minutes, lessons, words, mastered, xp };
   }
 
   function weekDone(w) {

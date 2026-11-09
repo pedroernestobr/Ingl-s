@@ -10,7 +10,7 @@ Não precisa de cadastro, servidor ou instalação: o progresso fica salvo no pr
 
 1. Abra o `index.html` no navegador. Para instalar no celular e usar offline, publique no GitHub Pages (veja abaixo).
 2. Informe seu nome, quanto tempo quer estudar por dia e a data de início.
-3. Todo dia, abra a tela **Hoje** e toque em **Começar**. O app sempre mostra a próxima atividade.
+3. Todo dia, abra a **Trilha** e toque no círculo marcado com **Começar**. O app sempre leva você à próxima atividade.
 
 ## O método
 
@@ -39,10 +39,10 @@ Ao todo são 240 palavras e expressões, 120 frases de shadowing, 120 exercício
 
 ## Telas
 
-- **Hoje:** próxima atividade, anéis de atividade do dia (minutos, lição e revisão), cartões para revisar, dias da semana e jornada de 12 semanas.
+- **Trilha:** um caminho vertical com os 84 dias. Cada dia é um círculo: os concluídos ficam coloridos com um visto, o próximo tem o botão "Começar" e os seguintes ficam bloqueados (dá para abrir mesmo assim). O cabeçalho da semana fica fixo no topo, e a barra superior mostra a sequência de dias, os pontos (XP) e os cartões para revisar.
 - **Plano:** as 3 fases e as 12 semanas. Cada semana abre uma página própria com os 7 dias, a gramática e as missões de imersão.
 - **Revisar:** revisão espaçada, distribuição dos cartões nas 5 caixas, vocabulário com busca e treino livre.
-- **Progresso:** estatísticas, execução por semana, calendário de 84 dias, checkpoints e diário de escrita.
+- **Progresso:** anéis de atividade do dia (minutos, lição e revisão), estatísticas, execução por semana, calendário de 84 dias, checkpoints e diário de escrita.
 - **Método:** explicação do método dentro do app.
 - **Ajustes:** nome, meta diária, data de início, voz e velocidade do áudio, tema claro ou escuro, backup e reinício.
 
