@@ -1,0 +1,14 @@
+{
+  "name": "Inglês em 12 Semanas",
+  "short_name": "Inglês 12",
+  "description": "Plano de 12 semanas para aprender inglês com lições diárias, revisão espaçada e shadowing.",
+  "lang": "pt-BR",
+  "start_url": "./#hoje",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f5f8",
+  "theme_color": "#151b2c",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
