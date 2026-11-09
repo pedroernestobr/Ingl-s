@@ -23,7 +23,7 @@
     return {
       version: 1,
       profile: null,
-      settings: { rate: 0.95, voiceURI: "", theme: "system", autoplay: true },
+      settings: { rate: 0.95, voiceURI: "", theme: "light", themeV: 2, autoplay: true },
       lessons: {},       // "w1d1": { at, correct, total, minutes }
       checkpoints: {},   // "w1": { score, total, at, selfcheck, worked, change }
       cards: {},         // "w1d1v0": { box, due, reps, lapses, added }
@@ -39,7 +39,10 @@
       if (!raw) return blank();
       const data = JSON.parse(raw);
       const base = blank();
-      return Object.assign(base, data, { settings: Object.assign(base.settings, data.settings || {}) });
+      const merged = Object.assign(base, data, { settings: Object.assign(base.settings, data.settings || {}) });
+      // Versão 2 do visual: tema claro por padrão.
+      if (merged.settings.themeV !== 2) { merged.settings.theme = "light"; merged.settings.themeV = 2; }
+      return merged;
     } catch (e) {
       return blank();
     }

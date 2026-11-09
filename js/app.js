@@ -23,6 +23,7 @@
     return { v: h + (r ? ":" + String(r).padStart(2, "0") : ""), u: "h" };
   }
   const wordCount = (t) => (t.trim().match(/[A-Za-zÀ-ÿ0-9']+/g) || []).length;
+  const dot = (t) => (/[.?!…:]$/.test(t) ? t : t + ".");
   const isEnglish = (t) => /^[A-Za-z0-9 ,.'?!’_\-]+$/.test(t);
   const haptic = (ms) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* ignora */ } };
 
@@ -68,7 +69,7 @@
   };
   const icon = (name, cls) => '<svg class="icon ' + (cls || "") + '" viewBox="0 0 24 24" aria-hidden="true">' + ICON[name] + "</svg>";
   const chev = () => '<svg class="chev" viewBox="0 0 8 13" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5l-5 5"/></svg>';
-  const sq = (name, color, cls) => '<span class="sq ' + (cls || "") + '" style="background:var(--' + color + ')">' + icon(name) + "</span>";
+  const sq = (name, color, cls) => '<span class="sq ' + (cls || "") + '">' + icon(name) + "</span>";
 
   /* Célula de lista agrupada. Textos em title/sub/value já devem vir escapados. */
   function cell(o) {
@@ -92,12 +93,9 @@
   const list = (items, cls, id) => '<div class="list' + (cls ? " " + cls : "") + '"' + (id ? ' id="' + id + '"' : "") + ">" + items.join("") + "</div>";
 
   /* ───────── Tema ───────── */
-  let themeSetByApp = false;
   function applyTheme() {
     const t = S.state.settings.theme;
-    const root = document.documentElement;
-    if (t === "light" || t === "dark") { root.setAttribute("data-theme", t); themeSetByApp = true; }
-    else if (themeSetByApp) { root.removeAttribute("data-theme"); themeSetByApp = false; }
+    document.documentElement.setAttribute("data-theme", t === "dark" || t === "auto" ? t : "light");
   }
 
   /* ───────── Aviso (banner) e alerta (estilo iOS) ───────── */
@@ -209,7 +207,7 @@
     opts = opts || {};
     return '<header class="lt-header"><div>' +
       (opts.eyebrow ? '<p class="eyebrow' + (opts.tint ? " tint" : "") + '">' + opts.eyebrow + "</p>" : "") +
-      '<h1 class="large-title">' + title + "</h1>" +
+      '<h1 class="large-title two-tone">' + title + (opts.second ? '<span class="second">' + opts.second + "</span>" : "") + "</h1>" +
       (opts.sub ? '<p class="lt-sub">' + opts.sub + "</p>" : "") + "</div>" +
       (opts.avatar === false ? "" : '<a class="avatar" href="#ajustes" aria-label="Ajustes">' + initial() + "</a>") +
       "</header>";
@@ -221,7 +219,7 @@
     $("#app").innerHTML =
       '<div class="welcome"><div class="welcome-inner">' +
       '<div class="app-icon" aria-hidden="true">12</div>' +
-      '<h1 class="large-title center">Boas-vindas ao<br>Inglês em 12 Semanas</h1>' +
+      '<h1 class="h1 center two-tone">Inglês em 12 semanas.<span class="second">Do hello à conversa.</span></h1>' +
       '<div class="features">' +
       [["clock", "Lições de 15 minutos", "Cinco lições, um dia de imersão e uma revisão por semana. Do A1 ao B1 em 84 dias."],
         ["repeat", "Você não esquece", "As palavras voltam para revisão no momento certo, em 5 caixas de repetição espaçada."],
@@ -328,9 +326,9 @@
     const rv = reviewTotal ? act.reviews / reviewTotal : words ? 1 : 0;
     return '<div class="card rings-card">' + ringsSvg([act.min / goal, act.lessons ? 1 : 0, rv]) +
       '<div class="ring-legend">' +
-      '<div><p class="rl-label" style="color:var(--pink)">Minutos</p><p class="rl-value">' + act.min + "<small>/" + goal + " MIN</small></p></div>" +
-      '<div><p class="rl-label" style="color:var(--green)">Lição</p><p class="rl-value">' + Math.min(act.lessons, 9) + "<small>/1</small></p></div>" +
-      '<div><p class="rl-label" style="color:var(--cyan)">Revisão</p><p class="rl-value">' + (reviewTotal ? act.reviews + "<small>/" + reviewTotal + "</small>" : words ? "<small>EM DIA</small>" : "<small>—</small>") + "</p></div>" +
+      '<div><p class="rl-label" style="--dot:var(--ring-a)">Minutos</p><p class="rl-value">' + act.min + "<small>/" + goal + " MIN</small></p></div>" +
+      '<div><p class="rl-label" style="--dot:var(--ring-b)">Lição</p><p class="rl-value">' + Math.min(act.lessons, 9) + "<small>/1</small></p></div>" +
+      '<div><p class="rl-label" style="--dot:var(--ring-c)">Revisão</p><p class="rl-value">' + (reviewTotal ? act.reviews + "<small>/" + reviewTotal + "</small>" : words ? "<small>EM DIA</small>" : "<small>—</small>") + "</p></div>" +
       "</div></div>";
   }
 
@@ -359,8 +357,7 @@
           (done ? '<circle class="val" cx="' + box / 2 + '" cy="' + box / 2 + '" r="' + r + '" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + (c * (1 - done / 7)).toFixed(1) + '" transform="rotate(-90 ' + box / 2 + " " + box / 2 + ')"/>' : "") + "</svg>" +
           '<span class="node-bubble ' + (pt.x >= 0 ? "left" : "right") + '">' + (pt.d === 1 && w === 1 && !S.totals().lessons ? "Comece aqui" : "Começar") + "</span>";
       }
-      if (state === "done") extra = '<span class="node-check">' + icon("check") + "</span>";
-      const glyph = state === "locked" && kind === "lesson" ? "lock" : KIND_ICON[kind];
+      const glyph = state === "locked" && kind === "lesson" ? "lock" : state === "done" && kind !== "review" ? "check" : KIND_ICON[kind];
       return '<button class="node ' + state + " " + kind + '" data-action="node" data-id="' + id + '" data-x="' + pt.x + '" data-top="' + top + '" data-size="' + pt.s + '"' +
         ' style="top:' + top + "px;left:calc(50% + " + (pt.x - pt.s / 2) + "px);width:" + pt.s + "px;height:" + pt.s + 'px"' +
         ' aria-label="Dia ' + pt.d + ": " + esc(S.dayTitle(w, pt.d)) + ", " + { done: "concluído", current: "próxima atividade", locked: "bloqueado" }[state] + '">' +
@@ -386,7 +383,14 @@
       '<a class="stat xp" href="#progresso" aria-label="' + t.xp + ' pontos de experiência">' + icon("bolt") + "<span>" + t.xp + "</span></a>" +
       '<a class="stat cards' + (due ? " due" : "") + '" href="#revisar" aria-label="' + plural(due, "cartão", "cartões") + ' para revisar">' + icon("cards") + "<span>" + due + "</span></a>" +
       "</div></div>";
-    if (!S.storageOk) html += '<p class="tag" style="color:var(--orange-text);background:var(--orange-tint)">Este navegador não está salvando seu progresso (modo privado?).</p>';
+    const name = st.profile.name;
+    const date = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+    const nx = nid ? S.parseId(nid) : null;
+    html += ltHeader((name ? "Olá, " + esc(name) : "Olá") + ".", {
+      eyebrow: esc(date), avatar: false,
+      second: nx ? "Próxima: " + esc(S.dayTitle(nx.w, nx.d)) + "." : "Trilha concluída."
+    }).replace('class="lt-header"', 'class="lt-header trail-hero"');
+    if (!S.storageOk) html += '<p class="tag">Este navegador não está salvando seu progresso (modo privado?).</p>';
     C.phases.forEach((p) => {
       html += '<div class="phase-divider"><span>Fase ' + p.n + " · " + esc(p.name) + " · " + p.cefr + "</span></div>";
       for (let w = p.weeks[0]; w <= p.weeks[1]; w++) html += unitHtml(w, p, nid);
@@ -457,8 +461,8 @@
       return section("Fase " + p.n + " · " + esc(p.name) + " · " + p.cefr, list(rows, "icons"), esc(p.text));
     });
     const html =
-      ltHeader("Plano", { eyebrow: "84 dias · A1 → B1" }) +
-      '<p class="subhead secondary" style="padding:0 4px">Cada semana tem 5 lições, 1 dia de imersão e 1 revisão com placar. Você pode abrir qualquer dia.</p>' +
+      ltHeader("Plano.", { eyebrow: "3 fases · 12 semanas", second: "84 dias, do A1 ao B1." }) +
+      '<p class="subhead secondary" style="padding:0 4px">Cada semana tem 5 lições, 1 dia de imersão e 1 revisão com placar. Toque numa semana para ver os dias.</p>' +
       phases.join("");
     return { html, meta: { title: "Plano" } };
   }
@@ -490,7 +494,7 @@
       '<input type="checkbox" class="check-circle" data-input="week-task" data-w="' + w + '" data-i="' + i + '" aria-label="Concluída"' + (imm[i] ? " checked" : "") + "></label>");
     const g = wk.grammar;
     const html =
-      ltHeader(esc(wk.title), { eyebrow: "Semana " + w + " · " + esc(ph.name) + " · " + wk.cefr, sub: '<span lang="en">' + esc(wk.en) + "</span>", avatar: false }) +
+      ltHeader(esc(wk.title) + ".", { eyebrow: "Semana " + w + " · " + esc(ph.name) + " · " + wk.cefr, second: '<span lang="en">' + esc(dot(wk.en)) + "</span>", avatar: false }) +
       '<div class="card" style="display:flex;flex-direction:column;gap:12px">' +
       '<div class="exec-row"><span class="secondary">Execução</span>' + progressBar(ex, true) + "<b>" + ex + "%</b></div>" +
       '<p class="body"><b>Meta:</b> ' + esc(wk.goal) + "</p></div>" +
@@ -529,7 +533,7 @@
       "</div></div>";
 
     const html =
-      ltHeader("Revisar", { eyebrow: "Repetição espaçada" }) +
+      ltHeader("Revisar.", { eyebrow: "Repetição espaçada", second: due ? plural(due, "cartão", "cartões") + " para hoje." : total ? "Tudo em dia." : "Sua caixa está vazia." }) +
       hero +
       (total ? section("Suas caixas", boxes, "Acertou, o cartão sobe de caixa e demora mais para voltar. Errou, volta para a Caixa 1.") +
         section("", list([cell({ action: "practice", icon: "shuffle", color: "purple", title: "Treino livre", sub: "10 cartões aleatórios. Não altera as caixas.", chevron: true })], "icons")) +
@@ -563,11 +567,11 @@
     const streak = S.streak();
 
     const tiles = [
-      ["flame", "orange", "Sequência", streak, streak === 1 ? "dia" : "dias"],
-      ["zap", "yellow", "Pontos", t.xp, "XP"],
-      ["textformat", "blue", "Palavras", t.words, ""],
-      ["clock", "pink", "Estudo", mins.v, mins.u]
-    ].map((x) => '<div class="tile"><p class="tile-head" style="color:var(--' + x[1] + ')">' + icon(x[0]) + x[2] + '</p><p class="tile-value">' + x[3] + "<small>" + x[4] + "</small></p></div>").join("");
+      ["flameFill", "new", "Sequência", streak, streak === 1 ? "dia" : "dias"],
+      ["bolt", "label", "Pontos", t.xp, "XP"],
+      ["textformat", "label", "Palavras", t.words, ""],
+      ["clock", "label", "Estudo", mins.v, mins.u]
+    ].map((x) => '<div class="tile"><p class="tile-head"><span style="display:inline-flex;color:var(--' + x[1] + ')">' + icon(x[0]) + "</span>" + x[2] + '</p><p class="tile-value">' + x[3] + "<small>" + x[4] + "</small></p></div>").join("");
 
     // Execução semanal: barras com meta de 85%
     const wide = window.innerWidth >= 700;
@@ -629,7 +633,7 @@
     }));
 
     const html =
-      ltHeader("Progresso", { eyebrow: "Seu placar" }) +
+      ltHeader("Progresso.", { eyebrow: "Seu placar", second: "Semana " + cur + " de 12." }) +
       section("Hoje", todayCard(), "O anel azul fecha quando não há cartões pendentes. " + t.lessons + " de " + S.TOTAL_DAYS + " dias concluídos.") +
       '<div class="tiles">' + tiles + "</div>" +
       section("Execução semanal", '<div class="card chart">' + svg + "</div>", "Dias feitos ÷ 7. Fazer 6 de 7 dias (86%) mantém o ritmo das 12 semanas.") +
@@ -659,7 +663,7 @@
       ["pencil", "green", "Escrita", "Um texto curto", "4 min"]
     ];
     const html =
-      ltHeader("Método", { eyebrow: "Como funciona" }) +
+      ltHeader("Método.", { eyebrow: "Como funciona", second: "Pouco por dia. Todo dia." }) +
       '<p class="body secondary" style="padding:0 4px">Seis práticas com boa base em pesquisa de aquisição de linguagem, organizadas em ciclos curtos. Você não precisa decidir o que estudar: abra o app e faça a próxima atividade.</p>' +
       section("Pilares", list(pillars.map((p) => cell({ icon: p[0], color: p[1], title: p[2], sub: p[3] })), "icons")) +
       section("Uma lição · Dias 1 a 5", list(flow.map((f) => cell({ icon: f[0], color: f[1], title: f[2], sub: f[3], value: f[4] })), "icons"), "15 a 20 minutos por dia.") +
@@ -688,7 +692,7 @@
       opts.map((o) => '<button type="button" data-value="' + o[0] + '" aria-pressed="' + (String(val) === String(o[0])) + '">' + o[1] + "</button>").join("") + "</div>";
     const nid = S.nextId();
     const html =
-      ltHeader("Ajustes", { avatar: false }) +
+      ltHeader("Ajustes.", { avatar: false }) +
       list([cell({ lead: '<span class="avatar lg">' + initial() + "</span>", title: '<span class="title3">' + (p.name ? esc(p.name) : "Estudante") + "</span>", sub: (nid ? "Semana " + S.parseId(nid).w + " de 12" : "Programa concluído") + " · desde " + S.fmtDate(p.startDate, { day: "numeric", month: "long" }) })]) +
       section("Perfil", list([
         '<label class="cell" for="set-name"><span class="cell-body"><span class="cell-title">Nome</span></span><input class="cell-input" id="set-name" data-input="name" value="' + esc(p.name) + '" placeholder="Seu nome" maxlength="40"></label>',
@@ -702,7 +706,7 @@
         '<label class="cell" for="set-autoplay">' + sq("speaker", "blue") + '<span class="cell-body"><span class="cell-title">Tocar palavras automaticamente</span></span><input type="checkbox" class="switch" id="set-autoplay" data-input="autoplay"' + (s.autoplay ? " checked" : "") + "></label>",
         cell({ action: "speak", attrs: 'data-text="Hello! Nice to meet you. How are you today?"', cls: "link", title: "Testar voz" })
       ], "icons"), SP.hasTTS ? "O áudio usa as vozes instaladas no aparelho. No iPhone, baixe vozes melhores em Ajustes › Acessibilidade › Conteúdo Falado › Vozes." : "Este navegador não tem voz sintetizada. Use Safari, Chrome ou Edge.") +
-      section("Aparência", list(['<div class="cell">' + seg("theme", s.theme, [["system", "Automático"], ["light", "Claro"], ["dark", "Escuro"]], "Tema", "flex:1") + "</div>"])) +
+      section("Aparência", list(['<div class="cell">' + seg("theme", s.theme, [["light", "Claro"], ["dark", "Escuro"], ["auto", "Automático"]], "Tema", "flex:1") + "</div>"])) +
       section("Backup", list([
         cell({ action: "backup-copy", cls: "link", title: "Copiar backup" }),
         '<div class="cell"><label class="sr-only" for="backup-box">Texto do backup</label><textarea id="backup-box" placeholder="Para restaurar, cole aqui o texto do backup" style="min-height:80px;font-size:15px"></textarea></div>',
@@ -850,7 +854,7 @@
   function speakBtn(text, cls, label) {
     return '<button class="speak ' + (cls || "") + '" data-action="speak" data-text="' + esc(text) + '" aria-label="' + esc(label || "Ouvir") + '">' + icon("speaker") + "</button>";
   }
-  const eyebrow = (t) => '<p class="eyebrow tint">' + t + "</p>";
+  const eyebrow = (t) => '<p class="eyebrow">' + t + "</p>";
 
   function next() {
     if (!P) return;
@@ -926,7 +930,7 @@
       el.innerHTML =
         '<div class="step-head">' + eyebrow((step.warm ? "Aquecimento" : P.free ? "Treino livre" : "Revisão") + " · Cartão " + n + " de " + total) + "</div>" +
         '<div class="flash"><span class="tag">Caixa ' + card.box + '</span><p class="word-en" lang="en">' + esc(c.en) + "</p>" + speakBtn(c.en, "lg", "Ouvir " + c.en) +
-        '<div class="answer" id="flash-answer" hidden><p class="title3">' + esc(c.pt) + '</p><p class="body" lang="en">' + esc(c.ex) + '</p><p class="subhead secondary">' + esc(c.exPt) + "</p></div></div>" +
+        '<div class="answer" id="flash-answer" hidden><p class="title1 steel">' + esc(c.pt) + '</p><p class="body" lang="en">' + esc(c.ex) + '</p><p class="subhead secondary">' + esc(c.exPt) + "</p></div></div>" +
         '<p class="footnote secondary center" id="flash-hint">Tente lembrar o significado antes de mostrar a resposta.</p>';
       setFoot(primary("Mostrar resposta", { action: "reveal" }));
       autoSpeak(c.en);
@@ -945,7 +949,7 @@
       const v = step.v;
       el.innerHTML =
         '<div class="step-head">' + eyebrow("Palavra nova " + (step.i + 1) + " de 4") + "</div>" +
-        '<div class="word-card"><div class="word-top"><div style="min-width:0"><p class="word-en" lang="en">' + esc(v[0]) + '</p><p class="title3 secondary" style="font-weight:400;margin-top:4px">' + esc(v[1]) + "</p></div>" + speakBtn(v[0], "lg", "Ouvir " + v[0]) + "</div>" +
+        '<div class="word-card"><div class="word-top"><p class="word-en" style="min-width:0"><span lang="en">' + esc(dot(v[0])) + '</span><span class="word-pt">' + esc(dot(v[1])) + "</span></p>" + speakBtn(v[0], "lg", "Ouvir " + v[0]) + "</div>" +
         '<div class="example">' + speakBtn(v[2], "", "Ouvir exemplo") + '<div style="min-width:0"><p class="headline" lang="en">' + esc(v[2]) + '</p><p class="subhead secondary">' + esc(v[3]) + "</p></div></div></div>" +
         '<p class="footnote secondary center">Ouça, repita em voz alta e pense numa frase sua com essa palavra.</p>';
       setFoot(primary("Continuar"));

@@ -2,7 +2,14 @@
 
 Um app web para aprender inglês em 84 dias, do nível A1 ao B1, com lições curtas todos os dias.
 
-O visual segue o padrão da Apple (Human Interface Guidelines): fonte do sistema (SF Pro no iPhone, iPad e Mac), cores do iOS, título grande que encolhe ao rolar, listas agrupadas, tab bar translúcida no iPhone, barra lateral no iPad e no Mac, anéis de atividade e alertas no estilo iOS. Os temas claro e escuro seguem o aparelho.
+O visual segue um design system Apple Premium, em tema claro:
+
+- **Cores:** light gray `#F5F5F7` no fundo, near black `#1D1D1F` nos textos, steel gray `#86868B` nos descritores e CTA blue `#0071E3` (hover `#0077ED`) como único acento. As cores de produto Midnight `#3B4B60`, Forest `#394C38` e Natural `#E3D3C3` marcam as fases e os troféus da trilha.
+- **Tipografia:** fonte do sistema (SF Pro Display semibold com -0.025em nos títulos e SF Pro Text no corpo). Os títulos têm duas linhas, a segunda em steel gray.
+- **Escala:** H1 56/60, H2 40/48, H3 28/36, H4 19/26, corpo 17/26 e legenda 12/16.
+- **Detalhes:** botões em pílula (raio de 980px), cartões com raio de 18px, sombras de no máximo 12% e nunca coloridas, e ícones no estilo SF Symbols.
+
+O tema escuro continua disponível em Ajustes.
 
 Não precisa de cadastro, servidor ou instalação: o progresso fica salvo no próprio navegador. Funciona no celular, pode ser instalado na tela inicial e continua funcionando offline depois da primeira visita.
 
