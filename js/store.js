@@ -1,48 +1,51 @@
-/* Estado do usuário, repetição espaçada (Leitner) e estatísticas.
-   Tudo fica no localStorage do navegador — nada é enviado para servidor. */
+/* Estado do intensivo, repetição espaçada em minutos e cronômetro de 8 horas.
+   Tudo fica no navegador (localStorage); nada é enviado para servidor. */
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "ingles12:v1";
-  const C = window.CURRICULUM;
+  const KEY = "intensivo500:v1";
+  const W = window.WORDS;
+  const N = W.length;            // 500
+  const RS = 25;                 // palavras por rodada
+  const ROUNDS = N / RS;         // 20
+  const PER_BLOCK = 5;           // rodadas por bloco
+  const BLOCKS = ROUNDS / PER_BLOCK; // 4
+  const SESSION_MIN = 480;       // 8 horas
+  const BREAK_EVERY = 50;        // minutos de estudo antes da pausa
+  const BREAK_MIN = 10;          // duração da pausa
+  const MIN = 60000;
 
-  /* ───────── Datas (sempre no fuso local, formato AAAA-MM-DD) ───────── */
-  const pad = (n) => String(n).padStart(2, "0");
-  function toKey(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
-  function fromKey(k) { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); }
-  function today() { return toKey(new Date()); }
-  function addDays(k, n) { const d = fromKey(k); d.setDate(d.getDate() + n); return toKey(d); }
-  function diffDays(a, b) { return Math.round((fromKey(b) - fromKey(a)) / 86400000); }
-  function fmtDate(k, opts) {
-    try { return fromKey(k).toLocaleDateString("pt-BR", opts || { day: "2-digit", month: "short" }); }
-    catch (e) { return k; }
-  }
+  /* Caixas de Leitner com intervalos em minutos (para um dia intensivo).
+     Caixa 1: 1 min · 2: 10 min · 3: 30 min · 4: 2 h · 5: amanhã.
+     Uma palavra conta como "aprendida" a partir da caixa 3: foi lembrada duas vezes, com 10 min de intervalo. */
+  const INTERVALS = [0, 1, 10, 30, 120, 1440];
+  const LEARNED_BOX = 3;
 
-  /* ───────── Persistência ───────── */
   function blank() {
     return {
       version: 1,
       profile: null,
-      settings: { rate: 0.95, voiceURI: "", theme: "light", themeV: 2, autoplay: true },
-      lessons: {},       // "w1d1": { at, correct, total, minutes }
-      checkpoints: {},   // "w1": { score, total, at, selfcheck, worked, change }
-      cards: {},         // "w1d1v0": { box, due, reps, lapses, added }
-      journal: [],       // { id, lesson, date, prompt, text }
-      immersion: {},     // "w1": [true, false, true]
-      activity: {}       // "2026-11-09": { min, lessons, reviews }
+      settings: { rate: 0.9, voiceURI: "", theme: "light", autoplay: true },
+      session: { startedAt: null, lastBreakEnd: null, breaks: [], finishedAt: null },
+      cards: {},     // índice → { box, due, ok, bad, seen, learnedAt }
+      notes: {},     // índice → anotação
+      pad: "",       // caderno livre
+      nodes: {},     // "r1".."r20", "c1".."c4" → { at, correct, total, min }
+      talks: 0,      // conversas feitas
+      spoken: 0      // frases ditas em voz alta
     };
   }
 
   function load() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(KEY);
       if (!raw) return blank();
       const data = JSON.parse(raw);
       const base = blank();
-      const merged = Object.assign(base, data, { settings: Object.assign(base.settings, data.settings || {}) });
-      // Versão 2 do visual: tema claro por padrão.
-      if (merged.settings.themeV !== 2) { merged.settings.theme = "light"; merged.settings.themeV = 2; }
-      return merged;
+      return Object.assign(base, data, {
+        settings: Object.assign(base.settings, data.settings || {}),
+        session: Object.assign(base.session, data.session || {})
+      });
     } catch (e) {
       return blank();
     }
@@ -50,167 +53,164 @@
 
   let state = load();
   let storageOk = true;
-
   function save() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); storageOk = true; }
+    try { localStorage.setItem(KEY, JSON.stringify(state)); storageOk = true; }
     catch (e) { storageOk = false; }
   }
 
-  /* ───────── Currículo ───────── */
-  const WEEKS = C.weeks.length;            // 12
-  const TOTAL_DAYS = WEEKS * 7;            // 84
+  /* ───────── Palavras e rodadas ───────── */
+  function word(i) { const w = W[i]; return { i, en: w[0], pt: w[1], ex: w[2], exPt: w[3] }; }
+  function roundRange(r) { const a = (r - 1) * RS; return Array.from({ length: RS }, (_, k) => a + k); }
+  function blockOfRound(r) { return Math.ceil(r / PER_BLOCK); }
+  function blockRange(b) { const a = (b - 1) * PER_BLOCK * RS; return Array.from({ length: PER_BLOCK * RS }, (_, k) => a + k); }
 
-  function week(n) { return C.weeks[n - 1]; }
-  function phaseOf(n) { return C.phases.find((p) => n >= p.weeks[0] && n <= p.weeks[1]); }
-  function lessonId(w, d) { return "w" + w + "d" + d; }
-  function parseId(id) { const m = /^w(\d+)d(\d+)$/.exec(id); return m ? { w: +m[1], d: +m[2] } : null; }
-  function dayKind(d) { return d <= 5 ? "lesson" : d === 6 ? "immersion" : "review"; }
-  function dayTitle(w, d) {
-    const k = dayKind(d);
-    if (k === "lesson") return week(w).days[d - 1].title;
-    if (k === "immersion") return "Imersão";
-    return "Revisão semanal";
-  }
-  function allIds() {
+  /* Ordem da trilha: 5 rodadas e a prova de cada bloco. */
+  function nodeIds() {
     const out = [];
-    for (let w = 1; w <= WEEKS; w++) for (let d = 1; d <= 7; d++) out.push(lessonId(w, d));
+    for (let b = 1; b <= BLOCKS; b++) {
+      for (let k = 1; k <= PER_BLOCK; k++) out.push("r" + ((b - 1) * PER_BLOCK + k));
+      out.push("c" + b);
+    }
     return out;
   }
-  function isDone(id) { return !!state.lessons[id]; }
-  function nextId() { return allIds().find((id) => !isDone(id)) || null; }
+  function isDone(id) { return !!state.nodes[id]; }
+  function nextId() { return nodeIds().find((id) => !isDone(id)) || null; }
 
-  function cardId(w, d, i) { return lessonId(w, d) + "v" + i; }
-  function cardContent(id) {
-    const m = /^w(\d+)d(\d+)v(\d+)$/.exec(id);
-    if (!m) return null;
-    const wk = week(+m[1]);
-    const day = wk && wk.days[+m[2] - 1];
-    const v = day && day.vocab[+m[3]];
-    return v ? { id, en: v[0], pt: v[1], ex: v[2], exPt: v[3], w: +m[1] } : null;
+  /* ───────── Repetição espaçada ───────── */
+  const now = () => Date.now();
+  function card(i) { return state.cards[i] || null; }
+
+  function introduce(i) {
+    if (!state.cards[i]) state.cards[i] = { box: 1, due: now() + INTERVALS[1] * MIN, ok: 0, bad: 0, seen: now(), learnedAt: null };
   }
 
-  /* ───────── Repetição espaçada: sistema de Leitner com 5 caixas ───────── */
-  const INTERVALS = [0, 1, 2, 4, 8, 16]; // dias até a próxima revisão, por caixa
-
-  function addCards(ids) {
-    const t = today();
-    ids.forEach((id) => {
-      if (!state.cards[id]) state.cards[id] = { box: 1, due: addDays(t, 1), reps: 0, lapses: 0, added: t };
-    });
+  function setBox(c, box) {
+    c.box = Math.max(1, Math.min(5, box));
+    c.due = now() + INTERVALS[c.box] * MIN;
+    if (c.box >= LEARNED_BOX && !c.learnedAt) c.learnedAt = now();
   }
 
-  function dueIds(limit) {
-    const t = today();
-    const list = Object.keys(state.cards)
-      .filter((id) => state.cards[id].due <= t && cardContent(id))
-      .sort((a, b) => (state.cards[a].due < state.cards[b].due ? -1 : state.cards[a].due > state.cards[b].due ? 1 : state.cards[a].box - state.cards[b].box));
+  /* Exercício logo depois de aprender: acerto leva da caixa 1 para a 2; erro volta para a 1. */
+  function quiz(i, ok) {
+    introduce(i);
+    const c = state.cards[i];
+    if (ok) { c.ok += 1; if (c.box < 2) setBox(c, 2); }
+    else { c.bad += 1; setBox(c, 1); }
+  }
+
+  /* Revisão: "again" (errei), "hard" (difícil), "easy" (acertei). */
+  function nextBox(c, g) {
+    if (g === "again") return 1;
+    if (g === "hard") return c.box;
+    return Math.min(5, c.box + 1);
+  }
+  function grade(i, g) {
+    introduce(i);
+    const c = state.cards[i];
+    if (g === "again") c.bad += 1; else c.ok += 1;
+    if (g === "hard") { c.due = now() + Math.max(1, Math.round(INTERVALS[c.box] / 2)) * MIN; return; }
+    setBox(c, nextBox(c, g));
+  }
+  function intervalLabel(i, g) {
+    const c = card(i) || { box: 1 };
+    const m = g === "hard" ? Math.max(1, Math.round(INTERVALS[c.box] / 2)) : INTERVALS[nextBox(c, g)];
+    if (m >= 1440) return "amanhã";
+    if (m >= 60) return (m / 60) + " h";
+    return m + " min";
+  }
+
+  function dueIds(limit, exclude) {
+    const t = now();
+    const ex = exclude ? new Set(exclude) : null;
+    const list = Object.keys(state.cards).map(Number)
+      .filter((i) => state.cards[i].due <= t && state.cards[i].box < 5 && !(ex && ex.has(i)))
+      .sort((a, b) => state.cards[a].due - state.cards[b].due);
     return typeof limit === "number" ? list.slice(0, limit) : list;
   }
-
-  function dueTomorrow() {
-    const t = addDays(today(), 1);
-    return Object.keys(state.cards).filter((id) => state.cards[id].due <= t).length;
+  /* Palavras já vistas que ainda não foram aprendidas, das mais urgentes para as menos. */
+  function leftIds(limit) {
+    const list = Object.keys(state.cards).map(Number)
+      .filter((i) => state.cards[i].box < LEARNED_BOX)
+      .sort((a, b) => state.cards[a].due - state.cards[b].due);
+    return typeof limit === "number" ? list.slice(0, limit) : list;
+  }
+  function nextDueIn() {
+    const t = now();
+    const future = Object.values(state.cards).filter((c) => c.box < 5 && c.due > t).map((c) => c.due - t);
+    return future.length ? Math.ceil(Math.min(...future) / MIN) : null;
   }
 
-  /* grade: "again" (errei), "hard" (difícil), "easy" (acertei) */
-  function nextSchedule(card, grade) {
-    const t = today();
-    if (grade === "again") return { box: 1, due: t };
-    if (grade === "hard") return { box: card.box, due: addDays(t, 1) };
-    const box = Math.min(5, card.box + 1);
-    return { box, due: addDays(t, INTERVALS[box]) };
+  function status(i) {
+    const c = card(i);
+    if (!c) return "new";
+    return c.box >= LEARNED_BOX ? "learned" : "training";
   }
-
-  function gradeCard(id, grade) {
-    const card = state.cards[id];
-    if (!card) return;
-    const next = nextSchedule(card, grade);
-    card.box = next.box;
-    card.due = next.due;
-    card.reps += 1;
-    if (grade === "again") card.lapses += 1;
+  function counts() {
+    let seen = 0, learned = 0, fixed = 0;
+    Object.values(state.cards).forEach((c) => { seen += 1; if (c.box >= LEARNED_BOX) learned += 1; if (c.box >= 5) fixed += 1; });
+    return { seen, learned, training: seen - learned, fresh: N - seen, fixed };
   }
-
-  function intervalLabel(card, grade) {
-    const n = diffDays(today(), nextSchedule(card, grade).due);
-    if (n <= 0) return "hoje";
-    if (n === 1) return "amanhã";
-    return n + " dias";
-  }
-
   function boxCounts() {
     const out = [0, 0, 0, 0, 0];
     Object.values(state.cards).forEach((c) => { out[c.box - 1] += 1; });
     return out;
   }
-
-  /* ───────── Atividade e estatísticas ───────── */
-  function logActivity(patch) {
-    const t = today();
-    const a = state.activity[t] || { min: 0, lessons: 0, reviews: 0, xp: 0 };
-    a.min += patch.min || 0;
-    a.xp = (a.xp || 0) + (patch.xp || 0);
-    a.lessons += patch.lessons || 0;
-    a.reviews += patch.reviews || 0;
-    state.activity[t] = a;
+  function accuracy() {
+    let ok = 0, bad = 0;
+    Object.values(state.cards).forEach((c) => { ok += c.ok; bad += c.bad; });
+    return ok + bad ? Math.round((ok / (ok + bad)) * 100) : 0;
   }
 
-  function minutesToday() { const a = state.activity[today()]; return a ? a.min : 0; }
-
-  function streak() {
-    let k = today();
-    if (!state.activity[k]) k = addDays(k, -1);
-    let n = 0;
-    while (state.activity[k]) { n += 1; k = addDays(k, -1); }
-    return n;
+  /* ───────── Cronômetro do intensivo ───────── */
+  function startSession() {
+    if (!state.session.startedAt) { state.session.startedAt = now(); state.session.lastBreakEnd = now(); save(); }
   }
-
-  function totals() {
-    const minutes = Object.values(state.activity).reduce((s, a) => s + a.min, 0);
-    const xp = Object.values(state.activity).reduce((s, a) => s + (a.xp || 0), 0);
-    const lessons = Object.keys(state.lessons).length;
-    const words = Object.keys(state.cards).length;
-    const mastered = Object.values(state.cards).filter((c) => c.box >= 4).length;
-    return { minutes, lessons, words, mastered, xp };
+  function elapsedMin() {
+    const s = state.session.startedAt;
+    return s ? Math.max(0, Math.floor((now() - s) / MIN)) : 0;
   }
-
-  function weekDone(w) {
-    let n = 0;
-    for (let d = 1; d <= 7; d++) if (isDone(lessonId(w, d))) n += 1;
-    return n;
+  function sinceBreakMin() {
+    const s = state.session.lastBreakEnd || state.session.startedAt;
+    return s ? Math.floor((now() - s) / MIN) : 0;
   }
-  function execution(w) { return Math.round((weekDone(w) / 7) * 100); }
-
-  /* Dia do calendário desde a data de início (1 = primeiro dia). */
-  function calendarDay() {
-    if (!state.profile) return 1;
-    return diffDays(state.profile.startDate, today()) + 1;
+  function breakDue() { return !!state.session.startedAt && sinceBreakMin() >= BREAK_EVERY && counts().learned < N; }
+  function logBreak(startAt) {
+    state.session.breaks.push({ at: startAt, min: Math.round((now() - startAt) / MIN) });
+    state.session.lastBreakEnd = now();
+    save();
   }
-  function calendarWeek() {
-    const d = calendarDay();
-    if (d < 1) return 0;
-    return Math.min(WEEKS, Math.ceil(d / 7));
+  /* Quantas palavras aprendidas seria o ritmo ideal neste momento das 8 horas. */
+  function paceTarget() { return Math.min(N, Math.round((Math.min(elapsedMin(), SESSION_MIN) / SESSION_MIN) * N)); }
+  /* Série de aprendizado para o gráfico: [minuto, total aprendido]. */
+  function learnedSeries() {
+    const s = state.session.startedAt;
+    if (!s) return [];
+    return Object.values(state.cards).filter((c) => c.learnedAt).map((c) => Math.max(0, (c.learnedAt - s) / MIN)).sort((a, b) => a - b).map((m, k) => [m, k + 1]);
   }
 
   /* ───────── Backup ───────── */
   function exportJSON() { return JSON.stringify(state); }
   function importJSON(text) {
     const data = JSON.parse(text);
-    if (!data || typeof data !== "object" || !("lessons" in data) || !("cards" in data)) throw new Error("formato");
+    if (!data || typeof data !== "object" || !("cards" in data) || !("nodes" in data)) throw new Error("formato");
     const base = blank();
-    state = Object.assign(base, data, { settings: Object.assign(base.settings, data.settings || {}) });
+    state = Object.assign(base, data, { settings: Object.assign(base.settings, data.settings || {}), session: Object.assign(base.session, data.session || {}) });
     save();
   }
-  function reset() { state = blank(); save(); }
+  function reset(keepProfile) {
+    const p = state.profile, s = state.settings;
+    state = blank();
+    if (keepProfile) { state.profile = p; state.settings = s; }
+    save();
+  }
 
   window.Store = {
     get state() { return state; },
     get storageOk() { return storageOk; },
     save, reset, exportJSON, importJSON,
-    today, addDays, diffDays, fmtDate, fromKey, toKey,
-    WEEKS, TOTAL_DAYS, INTERVALS,
-    week, phaseOf, lessonId, parseId, dayKind, dayTitle, allIds, isDone, nextId,
-    cardId, cardContent, addCards, dueIds, dueTomorrow, gradeCard, intervalLabel, boxCounts,
-    logActivity, minutesToday, streak, totals, weekDone, execution, calendarDay, calendarWeek
+    N, RS, ROUNDS, PER_BLOCK, BLOCKS, SESSION_MIN, BREAK_EVERY, BREAK_MIN, INTERVALS, LEARNED_BOX,
+    word, roundRange, blockOfRound, blockRange, nodeIds, isDone, nextId,
+    card, introduce, quiz, grade, intervalLabel, dueIds, leftIds, nextDueIn, status, counts, boxCounts, accuracy,
+    startSession, elapsedMin, sinceBreakMin, breakDue, logBreak, paceTarget, learnedSeries
   };
 })();

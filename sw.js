@@ -1,11 +1,11 @@
 /* Cache simples para o app funcionar offline depois da primeira visita.
    Ao publicar uma versão nova, aumente o número de VERSION. */
-const VERSION = "ingles12-v4";
+const VERSION = "intensivo500-v1";
 const ASSETS = [
   "./",
   "./index.html",
   "./css/styles.css",
-  "./js/curriculum.js",
+  "./js/words.js",
   "./js/store.js",
   "./js/speech.js",
   "./js/app.js",

@@ -1,10 +1,13 @@
 /* Áudio com as vozes do próprio aparelho (Web Speech API).
    - Fala: speechSynthesis (funciona offline na maioria dos celulares e computadores).
-   - Escuta: SpeechRecognition (Chrome, Edge e Safari recentes); se não existir, o app usa autoavaliação. */
+   - Escuta: o ditado do Claude quando o app roda como página do Claude; senão, SpeechRecognition
+     (Chrome, Edge e Safari recentes). Sem nenhum dos dois, o app usa autoavaliação. */
 (function () {
   "use strict";
 
   const synth = window.speechSynthesis || null;
+  // Dentro de uma página do Claude o microfone do navegador é bloqueado; lá só o ditado funciona.
+  const inFrame = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
   let voices = [];
 
@@ -50,7 +53,42 @@
 
   function stop() { try { if (synth) synth.cancel(); } catch (e) { /* ignora */ } }
 
+  /* Ditado do Claude (página publicada no claude.ai). Resolve null fora dele. */
+  let dictation = null;
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("dictation").then((d) => { dictation = d || null; if (dictation && window.Speech.onReady) window.Speech.onReady(); }).catch(() => {});
+  }
+
+  /* Precisa ser chamada direto do clique (o ditado exige o gesto do usuário). */
+  function listenDictation() {
+    return new Promise((resolve, reject) => {
+      let text = "";
+      let timer = null;
+      let ended = false;
+      const offF = dictation.onFinal(({ text: t }) => { text += t; clearTimeout(timer); timer = setTimeout(finish, 1300); });
+      const offP = dictation.onPartial(() => { clearTimeout(timer); timer = setTimeout(finish, 2500); });
+      function cleanup() { try { offF(); offP(); } catch (e) { /* ignora */ } }
+      async function finish() {
+        if (ended) return;
+        ended = true;
+        clearTimeout(timer);
+        try { await dictation.stop(); } catch (e) { /* ignora */ }
+        cleanup();
+        const t = text.trim();
+        if (t) resolve([t]); else reject(new Error("no-speech"));
+      }
+      dictation.start({ language: "en" }).then(() => { timer = setTimeout(finish, 7000); }).catch((e) => {
+        ended = true;
+        cleanup();
+        const code = e && e.code;
+        if (code === "unavailable") dictation = null;
+        reject(new Error(code === "not_granted" ? "not-allowed" : code || "error"));
+      });
+    });
+  }
+
   function listen() {
+    if (dictation) return listenDictation();
     return new Promise((resolve, reject) => {
       if (!Recognition) return reject(new Error("unsupported"));
       let rec;
@@ -85,7 +123,7 @@
 
   window.Speech = {
     get hasTTS() { return !!synth; },
-    get hasMic() { return !!Recognition; },
+    get hasMic() { return !!dictation || (!!Recognition && !inFrame); },
     get voices() { return voices; },
     speak, stop, listen, similarity, norm
   };

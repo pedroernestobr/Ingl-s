@@ -1,9 +1,9 @@
 {
-  "name": "Inglês em 12 Semanas",
-  "short_name": "Inglês 12",
-  "description": "Plano de 12 semanas para aprender inglês com lições diárias, revisão espaçada e shadowing.",
+  "name": "Intensivo 500",
+  "short_name": "Intensivo 500",
+  "description": "As 500 palavras mais usadas do inglês em 8 horas.",
   "lang": "pt-BR",
-  "start_url": "./#hoje",
+  "start_url": "./#intensivo",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f2f2f7",
