@@ -732,6 +732,21 @@ textarea.note-box { min-height: 72px; }
 .break-inner { padding-top: 24px; }
 .break-clock { font-family: var(--font-display); font-size: clamp(64px, 20vw, 96px); line-height: 1; font-weight: 600; letter-spacing: -0.04em; text-align: center; font-variant-numeric: tabular-nums; }
 
+/* Verbo to be e sincronização */
+.table-wrap { padding: 4px 0; overflow-x: auto; }
+.cola-table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 21px; }
+.cola-table th, .cola-table td { text-align: left; padding: 10px 16px; vertical-align: top; }
+.cola-table thead th { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; color: var(--label-2); }
+.cola-table tbody th { font-weight: 600; white-space: nowrap; }
+.cola-table tbody tr + tr th, .cola-table tbody tr + tr td { border-top: 1px solid var(--separator); }
+.cola-table td + td, .cola-table th + td { color: var(--label); }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 14px; letter-spacing: 0; }
+.stat.sync .icon { color: var(--label-3); }
+.stat.sync.ok .icon { color: var(--success); }
+.stat.sync.saving .icon { color: var(--blue); }
+.stat.sync.error .icon, .stat.sync.offline .icon { color: var(--new); }
+.dash .list.flat .cell { min-height: 48px; }
+
 /* ───────── Alerta e aviso ───────── */
 .alert-backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, .3); display: grid; place-items: center; padding: 16px; animation: fade-in .15s ease both; }
 .alert { width: 280px; max-width: 100%; border-radius: var(--r-card); background: var(--bar); -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px); overflow: hidden; text-align: center; box-shadow: var(--shadow-deep); animation: pop .2s ease both; }

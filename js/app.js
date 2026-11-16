@@ -69,7 +69,8 @@
     send: '<path d="M12 19V5M6 11l6-6 6 6"/>',
     coffee: '<path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M12 3v3"/>',
     brain: '<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h0a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path d="M15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3h0a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>',
-    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>'
+    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    cloud: '<path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.9 11a3.75 3.75 0 0 1-.4 7.5z"/>'
   };
   const icon = (name, cls) => '<svg class="icon ' + (cls || "") + '" viewBox="0 0 24 24" aria-hidden="true">' + ICON[name] + "</svg>";
   const chev = () => '<svg class="chev" viewBox="0 0 8 13" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5l-5 5"/></svg>';
@@ -143,17 +144,17 @@
   /* ───────── Navegação ───────── */
   const NAV = [
     { id: "intensivo", label: "Intensivo", icon: "route" },
+    { id: "tobe", label: "To be", icon: "layers" },
     { id: "palavras", label: "Palavras", icon: "textformat" },
     { id: "revisar", label: "Revisar", icon: "cards" },
-    { id: "caderno", label: "Caderno", icon: "pencil" },
-    { id: "metodo", label: "Método", icon: "book" }
+    { id: "caderno", label: "Caderno", icon: "pencil" }
   ];
 
   function renderShell() {
     $("#app").innerHTML =
       '<div class="app">' +
       '<nav class="sidebar" aria-label="Navegação principal"><p class="side-title title2">Intensivo 500</p>' +
-      NAV.concat([{ id: "ajustes", label: "Ajustes", icon: "gear" }]).map((n) => '<a class="side-link" data-nav="' + n.id + '" href="#' + n.id + '">' + icon(n.icon) + "<span>" + n.label + '</span><span class="badge" data-badge="' + n.id + '" hidden></span></a>').join("") +
+      NAV.concat([{ id: "metodo", label: "Método", icon: "book" }, { id: "ajustes", label: "Ajustes", icon: "gear" }]).map((n) => '<a class="side-link" data-nav="' + n.id + '" href="#' + n.id + '">' + icon(n.icon) + "<span>" + n.label + '</span><span class="badge" data-badge="' + n.id + '" hidden></span></a>').join("") +
       '<p class="side-foot footnote secondary" id="side-foot"></p></nav>' +
       '<div class="main"><div class="main-inner">' +
       '<header class="navbar" id="navbar"><div class="navbar-inner"><div class="nav-left" id="nav-left"></div><div class="nav-title" id="nav-title"></div><div class="nav-right" id="nav-right"></div></div></header>' +
@@ -173,7 +174,7 @@
     $("#nav-left").innerHTML = meta.back ? '<a class="back-btn" href="' + meta.back[0] + '">' + icon("chevL") + esc(meta.back[1]) + "</a>" : "";
     const c = S.counts();
     const foot = $("#side-foot");
-    if (foot) foot.innerHTML = c.learned + " de " + S.N + " palavras aprendidas.<br>Progresso salvo neste aparelho.";
+    if (foot) foot.innerHTML = c.seen + " de " + S.N + " palavras estudadas · " + c.learned + " fixadas.<br>" + esc(syncText()) + ".";
     onScroll();
   }
 
@@ -231,7 +232,10 @@
       section("", list(['<label class="cell" for="ob-name"><span class="cell-body"><span class="cell-title">Seu nome</span></span><input class="cell-input" id="ob-name" autocomplete="given-name" placeholder="Opcional" maxlength="40"></label>']),
         "Sem cadastro. Seu progresso fica salvo neste aparelho. O cronômetro de 8 horas só começa quando você mandar.") +
       '<button class="btn btn-filled btn-large" type="submit">Continuar</button>' +
-      "</form></div></div>";
+      "</form>" +
+      (window.Sync && Sync.inClaude ? "" : section("Já estudou em outro aparelho?", list(['<div class="cell stack"><label class="cell-title" for="ob-key">Cole o seu código de sincronização</label><div class="row-btns"><input class="note-box mono" id="ob-key" placeholder="0000-…" autocomplete="off" style="flex:1;min-width:0"><button class="btn" data-action="sync-use" data-field="#ob-key">Entrar</button></div></div>']),
+        "O código fica em Ajustes, no aparelho onde você começou.")) +
+      "</div></div>";
     $("#onboard-form").addEventListener("submit", (e) => {
       e.preventDefault();
       S.state.profile = { name: $("#ob-name").value.trim(), createdAt: new Date().toISOString() };
@@ -244,26 +248,34 @@
 
   /* ═══════════════════════ INTENSIVO ═══════════════════════ */
 
-  const PATH_X = [0, 52, 78, 52, 0, -58];
+  const PATH_X = [0, 52, 78, 52, 0, -52, -78];
   const STEP_Y = 96, PAD_Y = 30;
-  const nodeSize = (k) => (k === 6 ? 78 : 68);
+  const TOBE = window.TOBE;
+  const TOBE_PARTS = window.TOBE_PARTS;
+  const tobeLesson = (id) => TOBE.find((l) => l.id === id);
 
   function nodeInfo(id) {
     const n = +id.slice(1);
-    if (id[0] === "r") {
-      const words = S.roundRange(n);
-      return { kind: "round", n, block: S.blockOfRound(n), title: ROUND_NAMES[n - 1], words, label: "Rodada " + n, est: "20 min" };
-    }
-    return { kind: "check", n, block: n, title: "Prova do bloco " + n, words: S.blockRange(n), label: "Prova", est: "10 min" };
+    if (id[0] === "r") return { kind: "round", n, block: S.blockOfRound(n), title: ROUND_NAMES[n - 1], words: S.roundRange(n), label: "Rodada " + n, est: "20 min" };
+    if (id[0] === "c") return { kind: "check", n, block: n, title: "Prova do bloco " + n, words: S.blockRange(n), label: "Prova", est: "10 min" };
+    const l = tobeLesson(id);
+    return { kind: "tobe", n, title: l.title, sub: l.sub, review: !!l.review, words: [], label: l.review ? "Revisão final" : "Lição " + n, est: l.review ? "8 min" : "6 min" };
   }
+  const trailOf = (id) => (id[0] === "t" ? TOBE.map((l) => l.id) : S.nodeIds());
+  const nextOf = (id) => (id[0] === "t" ? S.nextTobe() : S.nextId());
   function isLocked(id) {
-    const nid = S.nextId();
+    const nid = nextOf(id);
     if (!nid || S.isDone(id)) return false;
-    const ids = S.nodeIds();
+    const ids = trailOf(id);
     return ids.indexOf(id) > ids.indexOf(nid);
   }
   function nodeState(id, nid) { return S.isDone(id) ? "done" : id === nid ? "current" : "locked"; }
   const learnedIn = (idxs) => idxs.filter((i) => S.status(i) === "learned").length;
+  const seenIn = (idxs) => idxs.filter((i) => S.card(i)).length;
+  const resumeFor = (id) => (S.state.resumes[id] && !S.isDone(id) ? S.state.resumes[id] : null);
+  /* A etapa em andamento mais recente (de qualquer trilha). */
+  const latestResume = (prefix) => Object.values(S.state.resumes).filter((r) => !S.isDone(r.id) && (!prefix || r.id[0] === prefix)).sort((x, y) => (y.at || 0) - (x.at || 0))[0] || null;
+  const stepsLeft = (r) => (r.steps.length - 1);
 
   function nextAction() {
     const st = S.state;
@@ -271,15 +283,28 @@
     const due = S.dueIds().length;
     const nid = S.nextId();
     if (!st.session.startedAt) return { label: "Começar o intensivo", action: "start-session" };
+    const res = latestResume();
+    if (res) {
+      const info = nodeInfo(res.id);
+      const what = info.kind === "tobe" ? "o to be (" + info.label.toLowerCase() + ")" : info.kind === "round" ? "a rodada " + info.n : "a prova do bloco " + info.n;
+      return { label: "Continuar " + what, action: "start", id: res.id, why: "Você parou no passo " + (res.i + 1) + " de " + stepsLeft(res) + ". Continua exatamente de onde saiu." };
+    }
     if (due >= 15) return { label: "Revisar " + due + " palavras", action: "review", why: "Revisões vencidas vêm primeiro: é nessa hora que a memória fixa." };
+    const roundsDone = S.nodeIds().filter((id) => id[0] === "r" && S.isDone(id)).length;
+    const tnext = S.nextTobe();
+    if (tnext && S.tobeCount() < Math.floor(roundsDone / 2)) {
+      const t = nodeInfo(tnext);
+      return { label: "Verbo to be · " + t.label, action: "start", id: tnext, why: t.title + ". Uma lição de gramática a cada 2 rodadas de palavras." };
+    }
     if (nid) {
       const info = nodeInfo(nid);
       return info.kind === "round"
         ? { label: "Começar a rodada " + info.n, action: "start", id: nid, why: info.title + " · palavras " + (info.words[0] + 1) + "–" + (info.words[24] + 1) + "." }
         : { label: "Fazer a prova do bloco " + info.n, action: "start", id: nid, why: "30 palavras do bloco: veja em português e diga em inglês." };
     }
+    if (tnext) return { label: "Verbo to be · " + nodeInfo(tnext).label, action: "start", id: tnext, why: "Termine a trilha do to be." };
     if (c.learned < S.N) return { label: "Maratona final · faltam " + (S.N - c.learned), action: "practice-left", why: "Treine as palavras que ainda não fixaram até chegar às 500." };
-    return { label: "Revisão relâmpago", action: "practice-random", why: "Você aprendeu as 500. Amanhã, revise as que voltarem." };
+    return { label: "Revisão relâmpago", action: "practice-random", why: "Você fixou as 500. Amanhã, revise as que voltarem." };
   }
 
   function dashboard() {
@@ -287,32 +312,32 @@
     const c = S.counts();
     const el = S.elapsedMin();
     const target = S.paceTarget();
-    const diff = c.learned - target;
+    const diff = c.seen - target;
     const act = nextAction();
     const due = S.dueIds().length;
+    const tb = S.tobeCount();
     let pace;
-    if (c.learned >= S.N) pace = "Você chegou às 500 palavras.";
-    else if (el >= S.SESSION_MIN) pace = "As 8 horas acabaram. Faltam " + (S.N - c.learned) + ": siga na maratona final.";
-    else if (el < 20) pace = "Primeiros minutos. As palavras contam como aprendidas depois da segunda revisão, 10 minutos depois.";
+    if (c.learned >= S.N) pace = "Você fixou as 500 palavras.";
+    else if (el >= S.SESSION_MIN) pace = "As 8 horas acabaram. Faltam " + (S.N - c.learned) + " para fixar: siga na maratona final.";
+    else if (el < 15) pace = "Primeiros minutos. Cada palavra estudada já fica registrada; ela fixa depois de duas revisões.";
     else if (diff >= 0) pace = "Você está " + plural(diff, "palavra", "palavras") + " à frente do ritmo das 8 horas.";
-    else pace = "Você está " + plural(-diff, "palavra", "palavras") + " atrás do ritmo. Revisar agora ajuda a recuperar.";
-    const wordsPct = Math.round((c.learned / S.N) * 100);
+    else pace = "Você está " + plural(-diff, "palavra", "palavras") + " atrás do ritmo. Uma rodada agora recupera.";
+    const pct = (n) => Math.round((n / S.N) * 100);
     const timePct = Math.round((Math.min(el, S.SESSION_MIN) / S.SESSION_MIN) * 100);
+    const bar = (label, p, cls, mark) => '<div class="dash-bar"><span class="caption secondary">' + label + '</span><div class="progress ' + (cls || "") + '" role="img" aria-label="' + label + " " + p + '%"><span style="width:' + p + '%"></span>' + (mark != null ? '<i class="target" style="left:' + mark + '%" title="Ritmo ideal agora"></i>' : "") + "</div></div>";
     return '<div class="card dash">' +
       '<div class="dash-stats">' +
-      '<div><p class="eyebrow">Aprendidas</p><p class="dash-num"><span data-live="learned">' + c.learned + "</span><small>/" + S.N + "</small></p></div>" +
+      '<div><p class="eyebrow">Estudadas</p><p class="dash-num">' + c.seen + "<small>/" + S.N + "</small></p></div>" +
+      '<div><p class="eyebrow">Fixadas</p><p class="dash-num">' + c.learned + "<small>/" + S.N + "</small></p></div>" +
       '<div><p class="eyebrow">Tempo</p><p class="dash-num"><span data-live="elapsed">' + hm(Math.min(el, 999 * 60)) + "</span><small>/8:00</small></p></div>" +
-      '<div><p class="eyebrow">Vistas</p><p class="dash-num">' + c.seen + "<small>/" + S.N + "</small></p></div>" +
       "</div>" +
-      '<div class="dash-bars">' +
-      '<div class="dash-bar"><span class="caption secondary">Palavras</span><div class="progress good" role="img" aria-label="' + wordsPct + '% das palavras"><span style="width:' + wordsPct + '%"></span><i class="target" style="left:' + Math.round((target / S.N) * 100) + '%" title="Ritmo ideal agora"></i></div></div>' +
-      '<div class="dash-bar"><span class="caption secondary">Tempo</span><div class="progress" role="img" aria-label="' + timePct + '% do tempo"><span style="width:' + timePct + '%"></span></div></div>' +
-      "</div>" +
+      '<div class="dash-bars">' + bar("Estudadas", pct(c.seen), "good", pct(target)) + bar("Fixadas", pct(c.learned)) + bar("Tempo", timePct) + "</div>" +
       '<p class="subhead secondary" data-live="pace">' + esc(pace) + "</p>" +
-      '<button class="btn btn-filled btn-large" data-action="' + act.action + '"' + (act.id ? ' data-id="' + act.id + '"' : "") + ">" + icon("play") + esc(act.label) + "</button>" +
+      '<button class="btn btn-filled btn-large" data-action="' + act.action + '"' + (act.id ? ' data-id="' + act.id + '" data-force="1"' : "") + ">" + icon("play") + esc(act.label) + "</button>" +
       (act.why ? '<p class="footnote secondary center">' + esc(act.why) + "</p>" : "") +
       (due && act.action !== "review" ? '<button class="btn btn-plain" data-action="review" style="align-self:center">Revisar ' + plural(due, "palavra vencida", "palavras vencidas") + "</button>" : "") +
-      (st.session.startedAt ? '<p class="footnote tertiary center">Começou às ' + clock(st.session.startedAt) + " · termina às " + clock(st.session.startedAt + S.SESSION_MIN * MIN) + "</p>" : "") +
+      list([cell({ href: "#tobe", icon: "layers", title: "Verbo to be", sub: "Trilha completa de gramática", value: tb + "/" + TOBE.length, chevron: true })], "icons flat") +
+      '<p class="footnote tertiary center">Fixada = lembrada duas vezes, com 10 minutos de intervalo. Começou às ' + clock(st.session.startedAt) + " · termina às " + clock(st.session.startedAt + S.SESSION_MIN * MIN) + "</p>" +
       "</div>";
   }
 
@@ -321,6 +346,7 @@
     return '<div class="card dash">' +
       list([
         cell({ icon: "layers", title: "20 rodadas de 25 palavras", sub: "Cerca de 20 minutos cada, em grupos de 5 palavras." }),
+        cell({ icon: "book", title: "Trilha completa do verbo to be", sub: "11 lições curtas, intercaladas com as rodadas." }),
         cell({ icon: "repeat", title: "Revisão espaçada em minutos", sub: "1 min, 10 min, 30 min, 2 horas e amanhã." }),
         cell({ icon: "mic", title: "Pronúncia e conversa", sub: "Repetir em voz alta, shadowing, falar frases" + (aiReady() ? " e conversar com a IA." : ".") }),
         cell({ icon: "coffee", title: "Pausa de 10 min a cada 50", sub: "O descanso ajuda a memória a fixar." })
@@ -335,41 +361,63 @@
       '<div class="row-btns"><button class="btn btn-filled" data-action="take-break">Fazer pausa</button><button class="btn" data-action="snooze-break">Daqui a 10 min</button></div></div>';
   }
 
-  function unitHtml(b, nid) {
-    const blk = BLOCKS[b - 1];
-    const ids = [];
-    for (let k = 1; k <= S.PER_BLOCK; k++) ids.push("r" + ((b - 1) * S.PER_BLOCK + k));
-    ids.push("c" + b);
-    const pts = ids.map((id, k) => { const s = nodeSize(k + 1); return { id, k: k + 1, x: PATH_X[k], y: PAD_Y + k * STEP_Y + s / 2, s }; });
-    const H = PAD_Y + 5 * STEP_Y + nodeSize(6) + 40;
+  /* Um trecho da trilha: cabeçalho fixo e os nós em zigue-zague. */
+  function trailUnit(o) {
+    const pts = o.ids.map((id, k) => {
+      const info = nodeInfo(id);
+      const big = info.kind === "check" || info.review;
+      return { id, k, info, big, x: PATH_X[k % PATH_X.length], s: big ? 78 : 68 };
+    });
+    let yy = PAD_Y;
+    pts.forEach((p) => { p.y = yy + p.s / 2; yy += STEP_Y; });
+    const last = pts[pts.length - 1];
+    const H = last.y + last.s / 2 + 40;
     let svg = '<svg class="path-line" width="400" height="' + H + '" viewBox="-200 0 400 ' + H + '" aria-hidden="true">';
     for (let i = 0; i < pts.length - 1; i++) {
       const a = pts[i], z = pts[i + 1];
       svg += '<path class="seg' + (S.isDone(a.id) ? " on" : "") + '" d="M' + a.x + " " + a.y + " C" + a.x + " " + (a.y + 50) + " " + z.x + " " + (z.y - 50) + " " + z.x + " " + z.y + '"/>';
     }
     svg += "</svg>";
-    const words = S.blockRange(b);
     const nodes = pts.map((pt) => {
-      const state = nodeState(pt.id, nid);
-      const info = nodeInfo(pt.id);
+      const state = nodeState(pt.id, o.nid);
+      const info = pt.info;
       const top = pt.y - pt.s / 2;
+      const res = resumeFor(pt.id);
       let extra = "";
       if (state === "current") {
         const r = pt.s / 2 + 8, c = 2 * Math.PI * r, box = pt.s + 22;
-        const done = learnedIn(info.words) / info.words.length;
+        const done = res ? res.i / stepsLeft(res) : info.kind === "round" ? seenIn(info.words) / info.words.length : 0;
         extra = '<svg class="node-ring" viewBox="0 0 ' + box + " " + box + '" aria-hidden="true"><circle class="track" cx="' + box / 2 + '" cy="' + box / 2 + '" r="' + r + '" fill="none" stroke-width="6"/>' +
-          (done ? '<circle class="val" cx="' + box / 2 + '" cy="' + box / 2 + '" r="' + r + '" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + (c * (1 - done)).toFixed(1) + '" transform="rotate(-90 ' + box / 2 + " " + box / 2 + ')"/>' : "") + "</svg>" +
-          '<span class="node-bubble ' + (pt.x >= 0 ? "left" : "right") + '">' + (pt.id === "r1" && !S.state.session.startedAt ? "Comece aqui" : info.kind === "round" ? "Rodada " + info.n : "Prova") + "</span>";
+          (done ? '<circle class="val" cx="' + box / 2 + '" cy="' + box / 2 + '" r="' + r + '" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + (c * (1 - Math.min(1, done))).toFixed(1) + '" transform="rotate(-90 ' + box / 2 + " " + box / 2 + ')"/>' : "") + "</svg>" +
+          '<span class="node-bubble ' + (pt.x >= 0 ? "left" : "right") + '">' + (res ? "Continuar" : pt.id === "r1" && !S.state.session.startedAt ? "Comece aqui" : info.label) + "</span>";
       }
-      const glyph = state === "locked" ? (info.kind === "check" ? "trophy" : "lock") : state === "done" && info.kind === "round" ? "check" : info.kind === "check" ? "trophy" : "star";
-      return '<button class="node ' + state + " " + (info.kind === "check" ? "review" : "lesson") + '" data-action="node" data-id="' + pt.id + '" data-x="' + pt.x + '" data-top="' + top + '" data-size="' + pt.s + '"' +
+      const glyph = state === "locked" ? (pt.big ? "trophy" : "lock") : state === "done" && !pt.big ? "check" : pt.big ? "trophy" : "star";
+      return '<button class="node ' + state + " " + (pt.big ? "review" : "lesson") + '" data-action="node" data-id="' + pt.id + '" data-x="' + pt.x + '" data-top="' + top + '" data-size="' + pt.s + '"' +
         ' style="top:' + top + "px;left:calc(50% + " + (pt.x - pt.s / 2) + "px);width:" + pt.s + "px;height:" + pt.s + 'px"' +
         ' aria-label="' + esc(info.label + ": " + info.title) + ", " + { done: "concluída", current: "próxima", locked: "bloqueada" }[state] + '">' + icon(glyph) + extra + "</button>";
     }).join("");
-    return '<section class="unit" style="--c:var(--phase-' + b + ')" id="b' + b + '">' +
-      '<header class="unit-head"><div><p class="unit-eyebrow">Bloco ' + b + " · " + ((b - 1) * 2) + "h–" + (b * 2) + "h · " + learnedIn(words) + "/" + words.length + '</p><h2 class="unit-title">' + esc(blk.name) + "</h2></div>" +
-      '<span class="unit-range caption secondary">' + (words[0] + 1) + "–" + (words[words.length - 1] + 1) + "</span></header>" +
+    return '<section class="unit" style="--c:var(--phase-' + o.color + ')" id="' + o.key + '">' +
+      '<header class="unit-head"><div><p class="unit-eyebrow">' + o.eyebrow + '</p><h2 class="unit-title">' + esc(o.title) + "</h2></div>" +
+      '<span class="unit-range caption secondary">' + o.range + "</span></header>" +
       '<div class="unit-path" style="height:' + H + 'px">' + svg + nodes + "</div></section>";
+  }
+
+  function blockUnit(b, nid) {
+    const ids = [];
+    for (let k = 1; k <= S.PER_BLOCK; k++) ids.push("r" + ((b - 1) * S.PER_BLOCK + k));
+    ids.push("c" + b);
+    const words = S.blockRange(b);
+    return trailUnit({
+      key: "b" + b, color: b, ids, nid, title: BLOCKS[b - 1].name,
+      eyebrow: "Bloco " + b + " · " + ((b - 1) * 2) + "h–" + (b * 2) + "h · " + seenIn(words) + "/" + words.length,
+      range: (words[0] + 1) + "–" + (words[words.length - 1] + 1)
+    });
+  }
+
+  function syncText() {
+    if (!window.Sync) return "Só neste aparelho";
+    const where = Sync.inClaude ? "Salvo na sua conta do Claude" : "Salvo na nuvem";
+    return { ok: where, saving: "Salvando…", error: "Sem conexão com a nuvem", offline: "Sem internet", idle: "Conectando…", off: "Só neste aparelho" }[Sync.status] || "Conectando…";
   }
 
   function viewIntensivo() {
@@ -383,24 +431,64 @@
       '<a class="avatar" href="#ajustes" aria-label="Ajustes">' + initial() + "</a>" +
       '<div class="stats">' +
       '<span class="stat" aria-label="Tempo de estudo">' + icon("clock") + '<span data-live="elapsed-chip">' + (started ? hm(Math.min(S.elapsedMin(), 999 * 60)) : "0:00") + "</span></span>" +
-      '<a class="stat" href="#palavras" aria-label="' + c.learned + ' palavras aprendidas">' + icon("check") + "<span>" + c.learned + "</span></a>" +
+      '<a class="stat" href="#palavras" aria-label="' + c.seen + ' palavras estudadas">' + icon("textformat") + "<span>" + c.seen + "</span></a>" +
       '<a class="stat cards' + (due ? " due" : "") + '" href="#revisar" aria-label="' + plural(due, "palavra", "palavras") + ' para revisar">' + icon("cards") + "<span>" + due + "</span></a>" +
+      '<a class="stat sync ' + (window.Sync ? Sync.status : "off") + '" href="#ajustes" data-live="sync-dot" aria-label="Sincronização: ' + syncText() + '">' + icon("cloud") + "</a>" +
       "</div></div>";
-    html += ltHeader(started ? c.learned + " de 500." : "500 palavras.", {
-      eyebrow: started ? (name ? esc(name) + " · " : "") + "intensivo de hoje" : (name ? "Olá, " + esc(name) : "Olá"),
+    html += ltHeader(started ? c.seen + " de 500." : "500 palavras.", {
+      eyebrow: started ? (name ? esc(name) + " · " : "") + "palavras estudadas hoje" : (name ? "Olá, " + esc(name) : "Olá"),
       avatar: false, cls: "trail-hero",
-      second: started ? (c.learned >= S.N ? "Meta batida." : "Faltam " + (S.N - c.learned) + ".") : "Em 8 horas. Hoje."
+      second: started ? (c.learned ? c.learned + " já fixadas." : "Faltam " + (S.N - c.seen) + ".") : "Em 8 horas. Hoje."
     });
     if (!S.storageOk) html += '<p class="tag">Este navegador não está salvando seu progresso (modo privado?).</p>';
     if (S.breakDue()) html += breakCard();
     html += started ? dashboard() : startCard();
     for (let b = 1; b <= S.BLOCKS; b++) {
       html += '<div class="phase-divider"><span>Bloco ' + b + " · horas " + ((b - 1) * 2) + " a " + b * 2 + "</span></div>";
-      html += unitHtml(b, nid);
+      html += blockUnit(b, nid);
     }
-    html += '<div class="path-end">' + icon("trophy") + '<p class="headline">Maratona final</p><p class="subhead secondary">Treine as que faltam até chegar às 500 aprendidas.</p>' +
-      (!nid ? '<button class="btn btn-filled" data-action="practice-left" style="margin-top:12px">Treinar as que faltam</button>' : "") + "</div>";
+    html += '<div class="path-end">' + icon("trophy") + '<p class="headline">Maratona final</p><p class="subhead secondary">Treine as que faltam até as 500 ficarem fixadas.</p>' +
+      (!nid ? '<button class="btn btn-filled" data-action="practice-left" style="margin-top:12px">Treinar as que faltam</button>' : "") + "</div>" +
+      list([cell({ href: "#metodo", icon: "bulb", title: "Como funciona o método", sub: "As técnicas e o plano das 8 horas", chevron: true })], "icons");
     return { html, meta: { title: "Intensivo", hideNav: true } };
+  }
+
+  /* ═══════════════════════ VERBO TO BE ═══════════════════════ */
+  function colaTable() {
+    const rows = [
+      ["I", "am · I'm", "was"],
+      ["he, she, it", "is · he's, she's, it's", "was"],
+      ["you, we, they", "are · you're, we're, they're", "were"],
+      ["Negativa", "I'm not · isn't · aren't", "wasn't · weren't"],
+      ["Pergunta", "Am I…? Is he…? Are you…?", "Was he…? Were you…?"],
+      ["Há, tem", "there is · there are", "there was · there were"],
+      ["Futuro", "will be · going to be", ""]
+    ];
+    return '<div class="card table-wrap"><table class="cola-table"><thead><tr><th></th><th>Presente</th><th>Passado</th></tr></thead><tbody>' +
+      rows.map((r) => '<tr><th scope="row">' + esc(r[0]) + '</th><td lang="en">' + esc(r[1]) + '</td><td lang="en">' + esc(r[2]) + "</td></tr>").join("") +
+      "</tbody></table></div>";
+  }
+
+  function viewTobe() {
+    const done = S.tobeCount();
+    const nid = S.nextTobe();
+    const res = latestResume("t");
+    const cta = res
+      ? { label: "Continuar " + nodeInfo(res.id).label.toLowerCase(), id: res.id }
+      : nid ? { label: (done ? "Fazer a " : "Começar pela ") + nodeInfo(nid).label.toLowerCase(), id: nid } : null;
+    let html = ltHeader("Verbo to be.", { eyebrow: "Trilha de gramática · " + TOBE.length + " lições", second: done >= TOBE.length ? "Trilha concluída." : done + " de " + TOBE.length + " lições." }) +
+      '<div class="card dash">' +
+      '<div class="dash-bar"><span class="caption secondary">Trilha</span><div class="progress good"><span style="width:' + Math.round((done / TOBE.length) * 100) + '%"></span></div></div>' +
+      '<p class="subhead secondary">Ser e estar no presente, no passado e no futuro: afirmar, negar, perguntar, there is e os usos que confundem o brasileiro. Cada lição leva uns 6 minutos.</p>' +
+      (cta ? '<button class="btn btn-filled btn-large" data-action="start" data-id="' + cta.id + '" data-force="1">' + icon("play") + esc(cta.label) + "</button>" : '<button class="btn btn-tinted btn-large" data-action="start" data-id="t11" data-force="1">Refazer a revisão final</button>') +
+      '<p class="footnote secondary center">No intensivo, o app sugere uma lição de to be a cada 2 rodadas de palavras.</p></div>' +
+      section("Cola do verbo to be", colaTable(), "Toque numa lição da trilha para ver a explicação completa, com exemplos em áudio.");
+    TOBE_PARTS.forEach((part, k) => {
+      html += '<div class="phase-divider"><span>Parte ' + (k + 1) + " · " + esc(part.name) + "</span></div>";
+      const ids = part.lessons;
+      html += trailUnit({ key: "tp" + (k + 1), color: k + 1, ids, nid, title: part.name, eyebrow: "Parte " + (k + 1) + " · " + ids.filter((id) => S.isDone(id)).length + "/" + ids.length, range: "lições " + ids[0].slice(1) + "–" + ids[ids.length - 1].slice(1) });
+    });
+    return { html, meta: { title: "To be" } };
   }
 
   function closePopover() {
@@ -415,26 +503,34 @@
     if (had) return;
     const id = el.dataset.id;
     const info = nodeInfo(id);
-    const state = nodeState(id, S.nextId());
+    const state = nodeState(id, nextOf(id));
+    const res = resumeFor(id);
     const pop = document.createElement("div");
     pop.className = "popover";
     pop.setAttribute("role", "dialog");
     pop.style.top = (+el.dataset.top + +el.dataset.size + 16) + "px";
     pop.style.setProperty("--ax", el.dataset.x + "px");
-    const sub = info.kind === "round"
-      ? '<span lang="en">' + esc(info.words.slice(0, 10).map((i) => S.word(i).en).join(" · ")) + " …</span>"
-      : "30 palavras do bloco. Você vê em português e diz em inglês.";
-    const rec = S.state.nodes[id];
-    const action = state === "locked"
-      ? '<p class="footnote secondary">Conclua as etapas anteriores para liberar.</p><button class="btn btn-plain" data-action="start" data-id="' + id + '" data-force="1">Abrir mesmo assim</button>'
-      : '<button class="btn btn-filled btn-large" data-action="start" data-id="' + id + '" data-force="1">' + icon("play") + (state === "done" ? "Refazer" : "Começar") + "</button>";
-    pop.innerHTML = '<p class="eyebrow">' + esc(info.label) + " · " + info.est + " · " + learnedIn(info.words) + "/" + info.words.length + " aprendidas</p>" +
+    let sub, count;
+    if (info.kind === "round") { sub = '<span lang="en">' + esc(info.words.slice(0, 10).map((i) => S.word(i).en).join(" · ")) + " …</span>"; count = seenIn(info.words) + "/25 estudadas"; }
+    else if (info.kind === "check") { sub = "30 palavras do bloco. Você vê em português e diz em inglês."; count = learnedIn(info.words) + "/125 fixadas"; }
+    else { sub = esc(info.sub) + (info.review ? " · 15 exercícios" : " · explicação, exemplos e 8 exercícios"); count = state === "done" ? "feita" : "verbo to be"; }
+    const rec = info.kind === "tobe" ? S.state.tobe[id] : S.state.nodes[id];
+    let action;
+    if (res) {
+      action = '<button class="btn btn-filled btn-large" data-action="start" data-id="' + id + '" data-force="1">' + icon("play") + "Continuar do passo " + (res.i + 1) + "</button>" +
+        '<button class="btn btn-plain" data-action="restart" data-id="' + id + '">Recomeçar do início</button>';
+    } else if (state === "locked") {
+      action = '<p class="footnote secondary">Conclua as etapas anteriores para liberar.</p><button class="btn btn-plain" data-action="start" data-id="' + id + '" data-force="1">Abrir mesmo assim</button>';
+    } else {
+      action = '<button class="btn btn-filled btn-large" data-action="start" data-id="' + id + '" data-force="1">' + icon("play") + (state === "done" ? "Refazer" : "Começar") + "</button>";
+    }
+    pop.innerHTML = '<p class="eyebrow">' + esc(info.label) + " · " + info.est + " · " + count + "</p>" +
       '<p class="title3">' + esc(info.title) + '</p><p class="subhead secondary">' + sub + "</p>" +
-      (rec ? '<p class="footnote secondary">Última vez: ' + rec.correct + "/" + rec.total + " acertos.</p>" : "") + action;
+      (rec && rec.total ? '<p class="footnote secondary">Última vez: ' + rec.correct + "/" + rec.total + " acertos.</p>" : "") + action;
     el.parentElement.appendChild(pop);
     el.classList.add("open-pop");
-    // O último nó do bloco abre o balão para cima, longe do cabeçalho do bloco seguinte.
-    if (info.kind === "check") {
+    const nodesIn = el.parentElement.querySelectorAll(".node");
+    if (info.kind === "check" || info.review || el === nodesIn[nodesIn.length - 1]) {
       pop.classList.add("above");
       pop.style.top = (+el.dataset.top - pop.offsetHeight - 16) + "px";
     }
@@ -446,7 +542,7 @@
 
   /* ═══════════════════════ PALAVRAS ═══════════════════════ */
   let wordFilter = "all";
-  const STATUS_LABEL = { new: "Nova", training: "Em treino", learned: "Aprendida" };
+  const STATUS_LABEL = { new: "Nova", training: "Em treino", learned: "Fixada" };
 
   function wordRow(i) {
     const w = S.word(i);
@@ -479,9 +575,9 @@
 
   function viewPalavras() {
     const c = S.counts();
-    const seg = [["all", "Todas"], ["new", "Novas"], ["training", "Em treino"], ["learned", "Aprendidas"]];
+    const seg = [["all", "Todas"], ["new", "Novas"], ["training", "Em treino"], ["learned", "Fixadas"]];
     const html =
-      ltHeader("500 palavras.", { eyebrow: "As mais usadas do inglês", second: c.learned + " aprendidas." }) +
+      ltHeader("500 palavras.", { eyebrow: "As mais usadas do inglês", second: c.seen + " estudadas, " + c.learned + " fixadas." }) +
       '<div class="segmented" role="group" aria-label="Filtro" data-filter>' + seg.map((s) => '<button type="button" data-value="' + s[0] + '" aria-pressed="' + (wordFilter === s[0]) + '">' + s[1] + "</button>").join("") + "</div>" +
       '<label class="search">' + icon("search", "icon-sm") + '<span class="sr-only">Buscar</span><input id="word-search" data-input="wsearch" type="search" placeholder="Buscar em inglês ou português"></label>' +
       '<div id="word-groups" class="view" style="gap:30px">' + wordGroups("") + "</div>";
@@ -541,9 +637,9 @@
     const html =
       ltHeader("Revisar.", { eyebrow: "Repetição espaçada", second: due ? plural(due, "palavra", "palavras") + " agora." : "Em dia." }) +
       hero +
-      (c.seen ? section("Suas caixas", boxes, "Acertou, a palavra sobe de caixa e volta mais tarde. Errou, volta para a caixa 1. A partir da caixa 3 ela conta como aprendida.") +
+      (c.seen ? section("Suas caixas", boxes, "Acertou, a palavra sobe de caixa e volta mais tarde. Errou, volta para a caixa 1. A partir da caixa 3 ela conta como fixada.") +
         section("Treino extra", list([
-          cell({ action: "practice-left", icon: "target", title: "Treinar as que faltam", sub: plural(c.training, "palavra vista e ainda não aprendida", "palavras vistas e ainda não aprendidas") + ".", chevron: true }),
+          cell({ action: "practice-left", icon: "target", title: "Treinar as que faltam", sub: plural(c.training, "palavra estudada e ainda não fixada", "palavras estudadas e ainda não fixadas") + ".", chevron: true }),
           cell({ action: "practice-random", icon: "shuffle", title: "Revisão relâmpago", sub: "20 palavras aleatórias que você já viu.", chevron: true })
         ], "icons")) : "");
     return { html, meta: { title: "Revisar" } };
@@ -590,7 +686,7 @@
         title: esc(b.name) + ' <span class="secondary">· ' + (k * 2) + "h–" + ((k + 1) * 2) + "h</span>",
         sub: "Palavras " + (k * 125 + 1) + "–" + ((k + 1) * 125) + ". 5 rodadas, 1 prova e 2 pausas."
       })).concat([
-        cell({ icon: "trophy", title: "Maratona final", sub: "Treine as que faltam até as 500 ficarem aprendidas." }),
+        cell({ icon: "trophy", title: "Maratona final", sub: "Treine as que faltam até as 500 ficarem fixadas." }),
         cell({ icon: "moon", title: "Amanhã", sub: "20 minutos de revisão: as palavras da caixa 5 voltam." })
       ]), "icons")) +
       section("Uma rodada · 20 min", list([
@@ -600,7 +696,7 @@
         cell({ icon: "mic", title: "Fale em inglês", sub: "3 frases: do português para o inglês.", value: "2 min" }),
         cell({ icon: "chat", title: "Conversa com IA", sub: "Quando disponível, usando as palavras da rodada.", value: "3 min" })
       ], "icons")) +
-      section("Expectativa realista", '<div class="card prose body"><p>Em 8 horas dá para reconhecer as 500 palavras e usar boa parte delas em frases simples.</p><p class="secondary">O app só conta uma palavra como aprendida depois que você lembra dela duas vezes, com 10 minutos de intervalo. Para guardar de vez, revise amanhã e daqui a 3 dias.</p></div>');
+      section("Expectativa realista", '<div class="card prose body"><p>Em 8 horas dá para reconhecer as 500 palavras e usar boa parte delas em frases simples.</p><p class="secondary">O app só conta uma palavra como fixada depois que você lembra dela duas vezes, com 10 minutos de intervalo. Para guardar de vez, revise amanhã e daqui a 3 dias.</p></div>');
     return { html, meta: { title: "Método" } };
   }
 
@@ -613,7 +709,21 @@
     const c = S.counts();
     const html =
       ltHeader("Ajustes.", { avatar: false }) +
-      list([cell({ lead: '<span class="avatar lg">' + initial() + "</span>", title: '<span class="title3">' + (st.profile.name ? esc(st.profile.name) : "Estudante") + "</span>", sub: c.learned + " de 500 aprendidas" + (st.session.startedAt ? " · começou às " + clock(st.session.startedAt) : "") })]) +
+      list([cell({ lead: '<span class="avatar lg">' + initial() + "</span>", title: '<span class="title3">' + (st.profile.name ? esc(st.profile.name) : "Estudante") + "</span>", sub: c.seen + " de 500 estudadas · " + c.learned + " fixadas" + (st.session.startedAt ? " · começou às " + clock(st.session.startedAt) : "") })]) +
+      (window.Sync && Sync.inClaude
+        ? section("Progresso na nuvem", list([
+          cell({ icon: "cloud", title: "Status", value: '<span data-live="sync">' + esc(syncText()) + "</span>" }),
+          cell({ action: "sync-now", cls: "link", title: "Salvar agora" })
+        ], "icons"), "Neste link do Claude, o progresso fica salvo na sua conta do Claude alguns segundos depois de cada mudança. Abra este mesmo link em qualquer aparelho para continuar.")
+        : section("Sincronização na nuvem", list([
+        cell({ icon: "cloud", title: "Status", value: '<span data-live="sync">' + esc(syncText()) + "</span>" }),
+        '<div class="cell stack"><span class="cell-title">Seu código de sincronização</span><input class="note-box mono" id="sync-code-box" readonly value="' + esc(window.Sync ? Sync.key : "") + '" aria-label="Código de sincronização"></div>',
+        cell({ action: "sync-copy", cls: "link", title: "Copiar código" }),
+        cell({ action: "sync-now", cls: "link", title: "Sincronizar agora" }),
+        '<div class="cell stack"><label class="cell-title" for="sync-key">Continuar o progresso de outro aparelho</label><div class="row-btns"><input class="note-box mono" id="sync-key" placeholder="Cole o código aqui" autocomplete="off" style="flex:1;min-width:0"><button class="btn btn-filled" data-action="sync-use" data-field="#sync-key">Usar</button></div></div>'
+      ], "icons"), "O progresso é salvo no Supabase alguns segundos depois de cada mudança. Para continuar em outro aparelho, use o mesmo código. Guarde-o.")) +
+      section("Registrar progresso anterior", list(['<div class="cell stack"><label class="cell-title" for="upto">Já estudei até a palavra nº</label><div class="row-btns"><input class="note-box" id="upto" type="number" min="1" max="500" inputmode="numeric" placeholder="Ex.: 49" style="max-width:150px"><button class="btn btn-filled" data-action="mark-upto">Registrar</button></div></div>']),
+        "Use se você estudou num aparelho ou link que não salvou. As palavras até esse número entram como estudadas e vão para revisão agora.") +
       section("Perfil", list(['<label class="cell" for="set-name"><span class="cell-body"><span class="cell-title">Nome</span></span><input class="cell-input" id="set-name" data-input="name" value="' + esc(st.profile.name) + '" placeholder="Seu nome" maxlength="40"></label>'])) +
       section("Áudio", list([
         '<div class="cell stack"><span class="cell-title">Velocidade da voz</span>' + seg("rate", s.rate, [[0.7, "Devagar"], [0.9, "Normal"], [1.05, "Rápida"]], "Velocidade da voz") + "</div>",
@@ -629,13 +739,14 @@
         cell({ action: "backup-restore", cls: "link", title: "Restaurar backup" })
       ]), "O progresso fica só neste navegador. Copie o backup para guardar ou levar a outro aparelho.") +
       section("", list([
+        cell({ href: "#metodo", cls: "link", title: "Como funciona o método" }),
         cell({ action: "reset-timer", cls: "link", title: "Reiniciar o cronômetro de 8 horas" }),
         cell({ action: "reset", cls: "destructive", title: "Apagar tudo e recomeçar" })
-      ]), "Reiniciar o cronômetro mantém as palavras aprendidas.");
+      ]), "Reiniciar o cronômetro mantém as palavras estudadas e fixadas.");
     return { html, meta: { title: "Ajustes" } };
   }
 
-  const VIEWS = { intensivo: viewIntensivo, palavras: viewPalavras, revisar: viewRevisar, caderno: viewCaderno, metodo: viewMetodo, ajustes: viewAjustes };
+  const VIEWS = { intensivo: viewIntensivo, tobe: viewTobe, palavras: viewPalavras, revisar: viewRevisar, caderno: viewCaderno, metodo: viewMetodo, ajustes: viewAjustes };
 
   /* ═══════════════════════ PAUSA ═══════════════════════ */
   let breakTimer = null;
@@ -744,6 +855,51 @@
     return { mode: "review", kind, steps, i: 0, correct: 0, total: 0, reviewed: 0, easy: 0, startedAt: Date.now() };
   }
 
+  function grammarStep(ex) {
+    if (ex.order) return { type: "order", order: ex.order, pt: ex.pt, label: "Monte a frase" };
+    const correct = ex.o[ex.a];
+    const filled = ex.q.includes("___") && isEnglish(ex.q) ? ex.q.replace("___", correct) : null;
+    return makeChoice(ex.q, correct, ex.o.filter((_, i) => i !== ex.a), { e: ex.e, say: filled, label: "Exercício" });
+  }
+
+  function buildTobe(id) {
+    const l = tobeLesson(id);
+    const steps = [{ type: "intro" }];
+    let exs;
+    if (l.review) {
+      exs = shuffle(TOBE.filter((x) => !x.review).flatMap((x) => x.ex)).slice(0, 15);
+    } else {
+      steps.push({ type: "explain", lid: id });
+      steps.push({ type: "examples", lid: id });
+      exs = l.ex;
+    }
+    exs.forEach((e) => steps.push(grammarStep(e)));
+    const ex = shuffle(l.examples);
+    ex.slice(0, 2).forEach((x, k) => steps.push({ type: "shadow", en: x[0], pt: x[1], k: k + 1, n: 2 }));
+    const say = ex.slice(2, l.review ? 5 : 4);
+    say.forEach((x, k) => steps.push({ type: "speak", en: x[0], pt: x[1], k: k + 1, n: say.length }));
+    if (aiReady()) steps.push({ type: "talk", tobe: id, words: [], msgs: [] });
+    steps.push({ type: "finish" });
+    return { mode: "node", id, info: nodeInfo(id), steps, i: 0, correct: 0, total: 0, reviewed: 0, easy: 0, startedAt: Date.now() };
+  }
+
+  /* Recria uma rodada ou lição salva no meio, no mesmo passo em que parou. */
+  function revive(res) {
+    const R = JSON.parse(JSON.stringify(res));
+    R.info = nodeInfo(R.id);
+    R.startedAt = Date.now() - (res.elapsed || 0);
+    R.steps.forEach((st) => { st.busy = false; });
+    const cur = R.steps[R.i];
+    if (cur) { cur.answered = false; if (cur.type === "order") cur.picked = []; }
+    return R;
+  }
+
+  function startNode(id) {
+    const res = resumeFor(id);
+    if (res && res.i < res.steps.length - 1) { openPlayer(revive(res)); toast("Continuando do passo " + (res.i + 1)); return; }
+    openPlayer(id[0] === "r" ? buildRound(+id.slice(1)) : id[0] === "c" ? buildCheck(+id.slice(1)) : buildTobe(id));
+  }
+
   function openPlayer(session) {
     if (!S.state.session.startedAt) S.startSession();
     P = session;
@@ -820,6 +976,10 @@
     inner.style.animation = "none";
     void inner.offsetWidth;
     inner.style.animation = "";
+    if (P.mode === "node" && step.type !== "finish" && P.i > 0) {
+      S.state.resumes[P.id] = { id: P.id, mode: P.mode, i: P.i, steps: P.steps, correct: P.correct, total: P.total, reviewed: P.reviewed, easy: P.easy, elapsed: Date.now() - P.startedAt, at: Date.now() };
+      S.save();
+    }
     STEPS[step.type](step, inner);
     $("#player .player-body").scrollTop = 0;
     try { inner.focus({ preventScroll: true }); } catch (e) { /* ignora */ }
@@ -856,14 +1016,51 @@
           ["mic", "Fale em inglês", "3 frases do português para o inglês", "2 min"]
         ]);
         if (P.steps.some((s) => s.type === "talk")) rows.push(["chat", "Conversa com IA", "Use as palavras da rodada", "3 min"]);
-      } else {
+      } else if (info.kind === "check") {
         rows = [["trophy", "30 palavras do bloco", "Você vê em português e diz em inglês", "8 min"], ["repeat", "Conta como revisão", "Acertos sobem de caixa; erros voltam para a 1", ""]];
+      } else {
+        const nEx = P.steps.filter((s) => s.type === "choice" || s.type === "order").length;
+        rows = (info.review ? [] : [["book", "Explicação", "Regras com tabela, em português", "2 min"], ["speaker", "Exemplos com áudio", "Ouça e repita", "1 min"]]).concat([
+          ["zap", nEx + " exercícios", "Complete, escolha e monte frases", info.review ? "5 min" : "3 min"],
+          ["headphones", "Shadowing e fale em inglês", "Frases com o verbo to be", "2 min"]
+        ]);
+        if (P.steps.some((s) => s.type === "talk")) rows.push(["chat", "Conversa com IA", "Pratique o verbo to be conversando", "3 min"]);
       }
-      el.innerHTML = '<div class="step-head">' + eyebrow(esc(info.label) + " · Bloco " + info.block + " · " + info.est) +
+      el.innerHTML = '<div class="step-head">' + eyebrow(info.kind === "tobe" ? "Verbo to be · " + esc(info.label) + " · " + info.est : esc(info.label) + " · Bloco " + info.block + " · " + info.est) +
         '<h1 class="title1">' + esc(info.title) + "</h1>" +
-        (info.kind === "round" ? '<p class="body secondary">Palavras ' + (info.words[0] + 1) + " a " + (info.words[24] + 1) + " das 500.</p>" : "") + "</div>" +
+        (info.kind === "round" ? '<p class="body secondary">Palavras ' + (info.words[0] + 1) + " a " + (info.words[24] + 1) + " das 500.</p>" : info.kind === "tobe" ? '<p class="body secondary">' + esc(info.sub) + ".</p>" : "") + "</div>" +
         list(rows.map((r) => cell({ icon: r[0], title: r[1], sub: esc(r[2]), value: r[3] })), "icons");
       setFoot(primary("Começar"));
+    },
+
+    explain(step, el) {
+      const l = tobeLesson(step.lid);
+      el.innerHTML = '<div class="step-head">' + eyebrow("Verbo to be · explicação") + '<h1 class="title1">' + esc(l.title) + '</h1><p class="body secondary">' + esc(l.sub) + ".</p></div>" +
+        list(l.points.map((pt, k) => cell({ lead: '<span class="wbadge">' + (k + 1) + "</span>", title: esc(pt) })), "icons") +
+        (l.table ? '<div class="card table-wrap"><table class="cola-table"><tbody>' + l.table.map((r) => "<tr>" + r.map((c, k) => (k ? "<td>" : '<th scope="row">') + esc(c) + (k ? "</td>" : "</th>")).join("") + "</tr>").join("") + "</tbody></table></div>" : "");
+      setFoot(primary("Entendi"));
+    },
+
+    examples(step, el) {
+      const l = tobeLesson(step.lid);
+      el.innerHTML = '<div class="step-head">' + eyebrow("Verbo to be · exemplos") + '<h1 class="title1">Ouça e repita.</h1><p class="body secondary">Toque no alto-falante de cada frase e repita em voz alta.</p></div>' +
+        list(l.examples.map((x) => cell({ lead: speakBtn(x[0], "", "Ouvir"), title: esc(x[0]), sub: esc(x[1]), lang: "en" })), "icons");
+      setFoot(primary("Continuar"));
+    },
+
+    order(step, el) {
+      if (!step.tiles) {
+        const words = step.order.replace(/[.,?!]/g, "").split(" ");
+        step.tiles = words.map((w, k) => (k === 0 && !/^I($|')/.test(w) ? w.toLowerCase() : w));
+        let idx = shuffle(step.tiles.map((_, k) => k));
+        if (idx.length > 1 && idx.every((v, k) => v === k)) idx = idx.slice(1).concat(idx[0]);
+        step.shuffled = idx;
+      }
+      step.picked = step.picked || [];
+      el.innerHTML = '<div class="step-head">' + eyebrow("Monte a frase") + '<h1 class="title2">' + esc(step.pt) + "</h1></div>" +
+        '<div class="answer-area" id="answer-line" data-placeholder="Toque nas palavras na ordem certa" aria-label="Sua frase" lang="en"></div>' +
+        '<div class="chips" id="tiles" lang="en"></div>';
+      drawTiles(step);
     },
 
     card(step, el) {
@@ -907,7 +1104,7 @@
     },
 
     choice(step, el) {
-      el.innerHTML = '<div class="step-head">' + eyebrow(esc(step.label) + " · teste rápido") + '<h1 class="title2 question">' + esc(step.q) + "</h1></div>" +
+      el.innerHTML = '<div class="step-head">' + eyebrow(esc(step.label) + (step.wi != null ? " · teste rápido" : "")) + '<h1 class="title2 question">' + esc(step.q).replace("___", '<span class="blank" aria-label="lacuna"></span>') + "</h1></div>" +
         (step.listen ? '<div class="controls"><button class="btn btn-tinted btn-capsule" data-action="speak" data-text="' + esc(step.listen) + '">' + icon("speaker") + 'Ouvir</button><button class="btn btn-capsule" data-action="speak" data-text="' + esc(step.listen) + '" data-rate="0.6">Mais devagar</button></div>' : "") +
         list(step.o.map((o, i) => '<button type="button" class="cell tappable opt" data-action="choose" data-i="' + i + '"><span class="cell-body"><span class="cell-title"' + (isEnglish(o) ? ' lang="en"' : "") + ">" + esc(o) + '</span></span><span class="opt-mark"></span></button>'));
       setFoot('<p class="foot-hint">Toque na resposta certa.</p>');
@@ -915,7 +1112,7 @@
     },
 
     shadow(step, el) {
-      const w = S.word(step.i);
+      const w = sentenceOf(step);
       step.reps = step.reps || 0;
       el.innerHTML = '<div class="step-head">' + eyebrow("Shadowing · " + step.k + " de " + step.n) +
         '<p class="body secondary">Ouça e fale junto com o áudio, imitando o ritmo. Três vezes, em voz alta.</p></div>' +
@@ -929,11 +1126,11 @@
     },
 
     speak(step, el) {
-      const w = S.word(step.i);
+      const w = sentenceOf(step);
       el.innerHTML = '<div class="step-head">' + eyebrow("Fale em inglês · " + step.k + " de " + step.n) +
         '<h1 class="title2">' + esc(w.exPt) + "</h1>" +
         '<p class="body secondary">Diga a frase em inglês, em voz alta. Depois confira.</p></div>' +
-        '<div class="controls">' + micButton("mic-sentence") + '<button class="btn btn-capsule" data-action="hint" data-i="' + step.i + '">Dica</button></div>' +
+        '<div class="controls">' + micButton("mic-sentence") + '<button class="btn btn-capsule" data-action="hint" data-text="' + esc(w.ex) + '">Dica</button></div>' +
         '<div class="mic-result" id="mic-result" hidden></div>' +
         '<div class="shadow-card" id="speak-answer" hidden><p class="title2" lang="en">' + esc(w.ex) + "</p>" +
         '<div class="controls"><button class="btn btn-filled btn-capsule" data-action="speak" data-text="' + esc(w.ex) + '">' + icon("play") + "Ouvir</button></div></div>";
@@ -943,7 +1140,7 @@
     talk(step, el) {
       el.innerHTML = '<div class="step-head">' + eyebrow("Conversa com IA") +
         '<h1 class="title2">Converse em inglês.</h1>' +
-        '<p class="body secondary">Responda com frases curtas. Use as palavras da rodada. A IA corrige com uma dica em português.</p></div>' +
+        '<p class="body secondary">' + (step.tobe ? "Responda com frases curtas usando o verbo to be. A IA corrige com uma dica em português." : "Responda com frases curtas. Use as palavras da rodada. A IA corrige com uma dica em português.") + "</p></div>" +
         '<div class="chat" id="chat" aria-live="polite"></div>' +
         '<div class="composer"><label class="sr-only" for="talk-box">Sua resposta em inglês</label><textarea id="talk-box" data-input="talk" lang="en" rows="2" placeholder="Answer in English…"></textarea>' +
         (SP.hasMic ? '<button class="speak" data-action="talk-mic" aria-label="Falar">' + icon("mic") + "</button>" : "") +
@@ -958,16 +1155,21 @@
       let title, lead, stats;
       if (P.mode === "review") {
         title = P.kind === "left" ? "Maratona concluída" : "Revisão concluída";
-        lead = c.learned >= S.N ? "Você chegou às 500 palavras aprendidas." : "Faltam " + (S.N - c.learned) + " para as 500.";
-        stats = [[P.reviewed, "palavras"], [P.easy, "acertos"], [c.learned, "aprendidas"]];
+        lead = c.learned >= S.N ? "Você fixou as 500 palavras." : "Faltam " + (S.N - c.learned) + " para fixar as 500.";
+        stats = [[P.reviewed, "palavras"], [P.easy, "acertos"], [c.learned, "fixadas"]];
       } else if (P.info.kind === "check") {
         title = "Prova do bloco " + P.info.n + " concluída";
         lead = "Você lembrou " + P.easy + " de " + P.reviewed + " em inglês.";
-        stats = [[P.easy + "/" + P.reviewed, "acertos"], [learnedIn(P.info.words) + "/125", "do bloco"], [c.learned, "aprendidas"]];
+        stats = [[P.easy + "/" + P.reviewed, "acertos"], [learnedIn(P.info.words) + "/125", "do bloco"], [c.learned, "fixadas"]];
+      } else if (P.info.kind === "tobe") {
+        const nt = S.nextTobe();
+        title = P.info.review ? "Trilha do to be concluída" : "Lição " + P.info.n + " de to be concluída";
+        lead = nt ? "Próxima: " + nodeInfo(nt).title + ". Agora volte às palavras." : "Você completou as 11 lições do verbo to be.";
+        stats = [[P.correct + "/" + P.total, "acertos"], [S.tobeCount() + "/" + TOBE.length, "lições"], [P.minutes, "min"]];
       } else {
         title = "Rodada " + P.info.n + " concluída";
         lead = "As palavras novas voltam em 10 e 30 minutos. " + (S.breakDue() ? "Hora de uma pausa." : "Siga para a próxima.");
-        stats = [[25, "palavras novas"], [P.correct + "/" + P.total, "acertos"], [c.learned, "aprendidas"]];
+        stats = [[25, "palavras novas"], [P.correct + "/" + P.total, "acertos"], [c.seen, "estudadas"]];
       }
       el.innerHTML = '<div class="step-head finish"><span class="finish-icon">' + icon("checkFill") + "</span>" +
         '<h1 class="title1">' + esc(title) + '</h1><p class="body secondary">' + esc(lead) + "</p></div>" +
@@ -979,6 +1181,17 @@
     }
   };
 
+  const sentenceOf = (step) => (step.en ? { ex: step.en, exPt: step.pt } : S.word(step.i));
+
+  function drawTiles(step) {
+    const line = $("#answer-line");
+    const tiles = $("#tiles");
+    if (!line || !tiles) return;
+    line.innerHTML = step.picked.map((ti, pos) => '<button class="chip" data-action="unpick" data-pos="' + pos + '">' + esc(step.tiles[ti]) + "</button>").join("");
+    tiles.innerHTML = step.shuffled.map((ti) => '<button class="chip' + (step.picked.includes(ti) ? " used" : "") + '" data-action="pick" data-t="' + ti + '"' + (step.picked.includes(ti) ? ' tabindex="-1" aria-hidden="true"' : "") + ">" + esc(step.tiles[ti]) + "</button>").join("");
+    if (!step.answered) setFoot(primary("Verificar", { action: "check-order", disabled: step.picked.length !== step.tiles.length, ghost: step.picked.length ? ["clear-order", "Limpar"] : null }));
+  }
+
   function shadowFoot(step) { setFoot(primary("Continuar", { disabled: step.reps < 3, ghost: ["skip", "Agora não posso falar"] })); }
   function talkFoot(step) {
     const n = step.msgs.filter((m) => m.role === "me").length;
@@ -986,9 +1199,12 @@
   }
 
   /* ───────── Conversa com IA ───────── */
-  function talkRules(words) {
-    return "You are a warm, patient English conversation partner for a Brazilian beginner (level A1) who is learning the 500 most common English words today.\n" +
-      "Words from the current round: " + words.map((i) => S.word(i).en).join(", ") + ".\n" +
+  function talkRules(step) {
+    const l = step.tobe ? tobeLesson(step.tobe) : null;
+    const focus = l
+      ? "Today the learner is practicing the verb TO BE. Lesson: \"" + l.title + "\" (" + l.sub + "). Ask questions that make the learner answer with this form of the verb to be (am, is, are, was, were, will be, there is, there are). In \"tip\", focus on the verb to be.\n"
+      : "Words from the current round: " + step.words.map((i) => S.word(i).en).join(", ") + ".\n";
+    return "You are a warm, patient English conversation partner for a Brazilian beginner (level A1) who is learning English today.\n" + focus +
       "Rules:\n" +
       "- Write simple English with very common words. Use two or three of the round words naturally.\n" +
       "- \"reply\": at most two short sentences, ending with ONE simple question about the learner's life.\n" +
@@ -1014,7 +1230,7 @@
     step.busy = true;
     step.error = "";
     drawChat(step);
-    const turns = [{ role: "user", content: talkRules(step.words) + "\n\nStart the conversation: greet the learner and ask your first question." }];
+    const turns = [{ role: "user", content: talkRules(step) + "\n\nStart the conversation: greet the learner and ask your first question." }];
     step.msgs.forEach((m) => {
       if (m.role === "ai") turns.push({ role: "assistant", content: JSON.stringify({ tip: m.tip || "", reply: m.text, translation: m.tr || "" }) });
       else turns.push({ role: "user", content: m.text });
@@ -1061,8 +1277,8 @@
     P.total += 1;
     if (ok) P.correct += 1;
     if (step.wi != null) S.quiz(step.wi, ok);
-    if (!ok && !step.again) {
-      let at = P.steps.findIndex((s, k) => k > P.i && s.type !== "choice");
+    if (!ok && !step.again && step.type === "choice") {
+      let at = P.steps.findIndex((s, k) => k > P.i && s.type !== "choice" && s.type !== "order");
       if (at < 0) at = P.steps.length - 1;
       const o = shuffle(step.o);
       P.steps.splice(at, 0, Object.assign({}, step, { again: true, answered: false, o, a: o.indexOf(shown) }));
@@ -1081,8 +1297,10 @@
     P.minutes = clamp(Math.round((Date.now() - P.startedAt) / MIN), 1, 90);
     if (P.mode === "node") {
       const isCheck = P.info.kind === "check";
-      S.state.nodes[P.id] = { at: Date.now(), correct: isCheck ? P.easy : P.correct, total: isCheck ? P.reviewed : P.total, min: P.minutes };
+      const rec = { at: Date.now(), correct: isCheck ? P.easy : P.correct, total: isCheck ? P.reviewed : P.total, min: P.minutes };
+      if (P.info.kind === "tobe") S.state.tobe[P.id] = rec; else S.state.nodes[P.id] = rec;
       if (P.steps.some((s) => s.type === "talk" && s.msgs.length > 1)) S.state.talks += 1;
+      delete S.state.resumes[P.id];
     }
     S.save();
   }
@@ -1120,19 +1338,47 @@
         if (!ok) return;
       }
       closePopover();
-      openPlayer(id[0] === "r" ? buildRound(+id.slice(1)) : buildCheck(+id.slice(1)));
+      startNode(id);
+    },
+    restart(el) {
+      if (S.state.resumes[el.dataset.id]) { delete S.state.resumes[el.dataset.id]; S.save(); }
+      closePopover();
+      startNode(el.dataset.id);
+    },
+    pick(el) {
+      const step = P.steps[P.i];
+      if (step.answered) return;
+      const t = +el.dataset.t;
+      if (!step.picked.includes(t)) step.picked.push(t);
+      drawTiles(step);
+    },
+    unpick(el) {
+      const step = P.steps[P.i];
+      if (step.answered) return;
+      step.picked.splice(+el.dataset.pos, 1);
+      drawTiles(step);
+    },
+    "clear-order"() { const step = P.steps[P.i]; step.picked = []; drawTiles(step); },
+    "check-order"() {
+      const step = P.steps[P.i];
+      if (step.answered) return;
+      step.answered = true;
+      const built = step.picked.map((k) => step.tiles[k]).join(" ");
+      $$("#tiles .chip, #answer-line .chip").forEach((b) => { b.disabled = true; });
+      answer(Object.assign(step, { say: step.order }), SP.norm(built) === SP.norm(step.order), step.order);
+      S.save();
     },
     node(el) { openPopover(el); },
     review() { if (S.dueIds().length) openPlayer(buildReview("due")); else toast("Nada vencido agora."); },
-    "practice-left"() { if (S.leftIds().length) openPlayer(buildReview("left")); else toast(S.counts().seen ? "Todas as palavras vistas já estão aprendidas." : "Faça uma rodada primeiro."); },
+    "practice-left"() { if (S.leftIds().length) openPlayer(buildReview("left")); else toast(S.counts().seen ? "Todas as palavras estudadas já estão fixadas." : "Faça uma rodada primeiro."); },
     "practice-random"() { if (S.counts().seen) openPlayer(buildReview("random")); else toast("Faça uma rodada primeiro."); },
     "take-break"() { openBreak(); },
     "snooze-break"() { S.state.session.lastBreakEnd = Date.now() - (S.BREAK_EVERY - 10) * MIN; S.save(); render(); },
     "end-break"() { endBreak(); },
     "finish-break"() { closePlayer(); openBreak(); },
     "player-close"() { requestClose(); },
-    "player-done"() { closePlayer(); if (location.hash !== "#intensivo") location.hash = "intensivo"; },
-    "next-node"() { const nid = S.nextId(); closePlayer(); if (nid) openPlayer(nid[0] === "r" ? buildRound(+nid.slice(1)) : buildCheck(+nid.slice(1))); },
+    "player-done"() { const wasTobe = P && P.info && P.info.kind === "tobe"; closePlayer(); const want = wasTobe ? "tobe" : "intensivo"; if (location.hash !== "#" + want) location.hash = want; },
+    "next-node"() { const nid = S.nextId(); closePlayer(); if (nid) startNode(nid); },
     next() { next(); },
     skip() { next(); },
     word(el) { openWordSheet(+el.dataset.i); },
@@ -1197,19 +1443,18 @@
     "mic-card"(el) { const step = P.steps[P.i]; runMic(el, S.word(step.i).en); },
     "mic-sentence"(el) {
       const step = P.steps[P.i];
-      runMic(el, S.word(step.i).ex, (best) => {
+      runMic(el, sentenceOf(step).ex, (best) => {
         if (step.type === "shadow" && best.s >= 70) { step.reps = 3; $$("#player .rep-dots span").forEach((s) => s.classList.add("on")); shadowFoot(step); }
       });
     },
     hint(el) {
-      const w = S.word(+el.dataset.i);
-      const words = w.ex.split(" ");
+      const words = el.dataset.text.split(" ");
       toast("Começa com: “" + words.slice(0, Math.max(1, Math.ceil(words.length / 3))).join(" ") + "…”");
     },
     "reveal-sentence"() {
       const step = P.steps[P.i];
       $("#speak-answer").hidden = false;
-      SP.speak(S.word(step.i).ex);
+      SP.speak(sentenceOf(step).ex);
       S.state.spoken += 1;
       setFoot(primary("Continuar"));
     },
@@ -1233,6 +1478,40 @@
     "backup-restore"() {
       try { S.importJSON($("#backup-box").value.trim()); toast("Backup restaurado"); $("#app").innerHTML = ""; render(); }
       catch (e) { toast("Texto inválido. Cole o backup completo."); }
+    },
+    async "sync-copy"() {
+      try { await navigator.clipboard.writeText(Sync.key); toast("Código copiado"); }
+      catch (e) { const box = $("#sync-code-box"); if (box) { box.focus(); box.select(); } toast("Copie o código selecionado"); }
+    },
+    async "sync-now"() {
+      toast("Sincronizando…");
+      try { await Sync.pull(); await Sync.push(); } catch (e) { /* o status mostra o erro */ }
+      toast(Sync.status === "ok" ? syncText() : Sync.status === "off" ? "A nuvem não está disponível aqui. Seu progresso continua salvo neste aparelho." : "Sem conexão com a nuvem agora. Seu progresso continua salvo neste aparelho.");
+      render();
+    },
+    async "sync-use"(el) {
+      const box = $(el.dataset.field || "#sync-key");
+      const k = box ? box.value.trim() : "";
+      if (!k) { toast("Cole o código de sincronização."); return; }
+      el.disabled = true;
+      try {
+        await Sync.useKey(k);
+        toast("Progresso carregado");
+        $("#app").innerHTML = "";
+        render();
+      } catch (e) {
+        toast(e.message === "codigo" ? "Código inválido. Ele tem 36 caracteres, com hifens." : e.message === "vazio" ? "Nenhum progresso salvo com esse código." : e.message === "indisponivel" ? "Use o código no site do app. Aqui o progresso já fica na sua conta do Claude." : "Não consegui conectar. Verifique a internet.");
+      }
+      el.disabled = false;
+    },
+    async "mark-upto"() {
+      const n = Math.floor(+($("#upto") || {}).value);
+      if (!(n >= 1 && n <= S.N)) { toast("Digite um número de 1 a 500."); return; }
+      const ok = await alertDialog({ title: "Registrar até a palavra " + n + "?", text: "As palavras 1 a " + n + " entram como estudadas e vão para revisão agora. As rodadas completas ficam marcadas como feitas.", ok: "Registrar", cancel: "Cancelar" });
+      if (!ok) return;
+      S.markStudiedUpTo(n);
+      toast("Registrado: " + n + " palavras estudadas");
+      if (location.hash !== "#intensivo") location.hash = "intensivo"; else render();
     },
     async "reset-timer"() {
       const ok = await alertDialog({ title: "Reiniciar o cronômetro?", text: "As 8 horas recomeçam agora. Palavras, notas e revisões ficam como estão.", ok: "Reiniciar", cancel: "Cancelar" });
@@ -1354,6 +1633,14 @@
 
   /* ───────── Início ───────── */
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch (e) { /* ignora */ }
-  S.save();
+  S.persist();
   render();
+  if (window.Sync) {
+    Sync.onRemote = () => { if (!P) { $("#app").innerHTML = ""; render(); } };
+    Sync.onStatus(() => {
+      $$('[data-live="sync"]').forEach((n) => { n.textContent = syncText(); });
+      $$('[data-live="sync-dot"]').forEach((n) => { n.className = "stat sync " + Sync.status; n.setAttribute("aria-label", "Sincronização: " + syncText()); });
+    });
+    Sync.init();
+  }
 })();

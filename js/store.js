@@ -31,21 +31,28 @@
       notes: {},     // índice → anotação
       pad: "",       // caderno livre
       nodes: {},     // "r1".."r20", "c1".."c4" → { at, correct, total, min }
+      tobe: {},      // lições do verbo to be: "t1".."t11" → { at, correct, total, min }
+      resumes: {},   // rodadas e lições em andamento: id → posição, para continuar de onde parou
       talks: 0,      // conversas feitas
-      spoken: 0      // frases ditas em voz alta
+      spoken: 0,     // frases ditas em voz alta
+      savedAt: 0     // última alteração (para a sincronização escolher a versão mais nova)
     };
+  }
+
+  function merge(data) {
+    const base = blank();
+    return Object.assign(base, data, {
+      settings: Object.assign(base.settings, data.settings || {}),
+      session: Object.assign(base.session, data.session || {}),
+      tobe: data.tobe || {},
+      resumes: data.resumes || (data.resume ? { [data.resume.id]: data.resume } : {})
+    });
   }
 
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
-      if (!raw) return blank();
-      const data = JSON.parse(raw);
-      const base = blank();
-      return Object.assign(base, data, {
-        settings: Object.assign(base.settings, data.settings || {}),
-        session: Object.assign(base.session, data.session || {})
-      });
+      return raw ? merge(JSON.parse(raw)) : blank();
     } catch (e) {
       return blank();
     }
@@ -53,9 +60,29 @@
 
   let state = load();
   let storageOk = true;
-  function save() {
+  /* Grava no navegador sem marcar como alteração nova. */
+  function persist() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); storageOk = true; }
     catch (e) { storageOk = false; }
+  }
+  /* Grava uma alteração: no navegador agora e na nuvem logo depois. */
+  function save() {
+    state.savedAt = Date.now();
+    persist();
+    if (window.Sync) window.Sync.schedule();
+  }
+  /* Cópia do progresso para a nuvem, com um resumo para consulta. */
+  function snapshot() {
+    const c = counts();
+    return Object.assign({}, state, { meta: { learned: c.learned, seen: c.seen, tobe: Object.keys(state.tobe).length } });
+  }
+  /* Troca o progresso local pelo que veio da nuvem. */
+  function replace(data) {
+    const savedAt = data.savedAt || Date.now();
+    delete data.meta;
+    state = merge(data);
+    state.savedAt = savedAt;
+    persist();
   }
 
   /* ───────── Palavras e rodadas ───────── */
@@ -73,8 +100,26 @@
     }
     return out;
   }
-  function isDone(id) { return !!state.nodes[id]; }
+  function isDone(id) { return id[0] === "t" ? !!state.tobe[id] : !!state.nodes[id]; }
   function nextId() { return nodeIds().find((id) => !isDone(id)) || null; }
+  const tobeIds = () => window.TOBE.map((l) => l.id);
+  function nextTobe() { return tobeIds().find((id) => !state.tobe[id]) || null; }
+  function tobeCount() { return tobeIds().filter((id) => state.tobe[id]).length; }
+
+  /* Registra progresso feito antes (ou em outro aparelho sem sincronização): as palavras de 1 até n
+     entram como estudadas e voltam para revisão agora; as rodadas completas ficam marcadas. */
+  function markStudiedUpTo(n) {
+    n = Math.max(0, Math.min(N, Math.floor(n)));
+    const t = now();
+    for (let i = 0; i < n; i++) {
+      if (!state.cards[i]) state.cards[i] = { box: 2, due: t, ok: 1, bad: 0, seen: t, learnedAt: null };
+    }
+    for (let r = 1; r <= ROUNDS; r++) {
+      if (r * RS <= n && !state.nodes["r" + r]) state.nodes["r" + r] = { at: t, correct: 0, total: 0, min: 0, manual: true };
+    }
+    if (!state.session.startedAt) { state.session.startedAt = t; state.session.lastBreakEnd = t; }
+    save();
+  }
 
   /* ───────── Repetição espaçada ───────── */
   const now = () => Date.now();
@@ -193,8 +238,8 @@
   function importJSON(text) {
     const data = JSON.parse(text);
     if (!data || typeof data !== "object" || !("cards" in data) || !("nodes" in data)) throw new Error("formato");
-    const base = blank();
-    state = Object.assign(base, data, { settings: Object.assign(base.settings, data.settings || {}), session: Object.assign(base.session, data.session || {}) });
+    delete data.meta;
+    state = merge(data);
     save();
   }
   function reset(keepProfile) {
@@ -207,7 +252,7 @@
   window.Store = {
     get state() { return state; },
     get storageOk() { return storageOk; },
-    save, reset, exportJSON, importJSON,
+    save, persist, snapshot, replace, reset, exportJSON, importJSON, markStudiedUpTo, nextTobe, tobeCount,
     N, RS, ROUNDS, PER_BLOCK, BLOCKS, SESSION_MIN, BREAK_EVERY, BREAK_MIN, INTERVALS, LEARNED_BOX,
     word, roundRange, blockOfRound, blockRange, nodeIds, isDone, nextId,
     card, introduce, quiz, grade, intervalLabel, dueIds, leftIds, nextDueIn, status, counts, boxCounts, accuracy,
