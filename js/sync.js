@@ -162,8 +162,12 @@
     try {
       const changed = await pull();
       if (changed && window.Sync.onRemote) window.Sync.onRemote();
-      if ((window.Store.state.savedAt || 0) > 0 && window.Store.state.profile) await push();
-      else setStatus("ok");
+      const st = window.Store.state;
+      if (st.profile) {
+        // Progresso feito numa versão anterior do app não tinha data de gravação: envia mesmo assim.
+        if (!st.savedAt) { st.savedAt = Date.now(); window.Store.persist(); }
+        await push();
+      } else setStatus("ok");
     } catch (e) {
       setStatus(navigator.onLine === false ? "offline" : "error");
     }
