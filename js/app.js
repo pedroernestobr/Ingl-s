@@ -12,6 +12,7 @@
   /* Etapas por área (js/areas.js, js/dodid.js, js/situacoes.js), na ordem das partes. */
   const PARTS = window.ETAPA_PARTS || [];
   const DODID = window.DODID || [];
+  const SOM = window.SOM || [];
   const ETAPAS = PARTS.flatMap((p) => (window.ETAPAS || []).filter((e) => e.part === p.key));
   ETAPAS.forEach((e, k) => {
     e.n = k + 1;
@@ -191,9 +192,9 @@
 
   /* ───────── Navegação ───────── */
   const NAV = [
+    { id: "semana", label: "Semana", icon: "calendar" },
     { id: "intensivo", label: "Intensivo", icon: "route" },
     { id: "etapas", label: "Etapas", icon: "grid" },
-    { id: "tobe", label: "To be", icon: "layers" },
     { id: "palavras", label: "Palavras", icon: "textformat" },
     { id: "revisar", label: "Revisar", icon: "cards" },
     { id: "caderno", label: "Caderno", icon: "pencil" }
@@ -203,7 +204,7 @@
     $("#app").innerHTML =
       '<div class="app">' +
       '<nav class="sidebar" aria-label="Navegação principal"><p class="side-title title2">Intensivo 1000</p>' +
-      NAV.concat([{ id: "metodo", label: "Método", icon: "book" }, { id: "ajustes", label: "Ajustes", icon: "gear" }]).map((n) => '<a class="side-link" data-nav="' + n.id + '" href="#' + n.id + '">' + icon(n.icon) + "<span>" + n.label + '</span><span class="badge" data-badge="' + n.id + '" hidden></span></a>').join("") +
+      NAV.concat([{ id: "tobe", label: "To be", icon: "layers" }, { id: "metodo", label: "Método", icon: "book" }, { id: "ajustes", label: "Ajustes", icon: "gear" }]).map((n) => '<a class="side-link" data-nav="' + n.id + '" href="#' + n.id + '">' + icon(n.icon) + "<span>" + n.label + '</span><span class="badge" data-badge="' + n.id + '" hidden></span></a>').join("") +
       '<p class="side-foot footnote secondary" id="side-foot"></p></nav>' +
       '<div class="main"><div class="main-inner">' +
       '<header class="navbar" id="navbar"><div class="navbar-inner"><div class="nav-left" id="nav-left"></div><div class="nav-title" id="nav-title"></div><div class="nav-right" id="nav-right"></div></div></header>' +
@@ -215,7 +216,7 @@
   }
 
   /* Telas visitadas nesta sessão (a última é a atual). Sustenta o botão Voltar de cada tela. */
-  const VIEW_LABEL = { intensivo: "Intensivo", etapas: "Etapas", tobe: "To be", palavras: "Palavras", revisar: "Revisar", caderno: "Caderno", metodo: "Método", ajustes: "Ajustes" };
+  const VIEW_LABEL = { semana: "Semana", intensivo: "Intensivo", etapas: "Etapas", tobe: "To be", palavras: "Palavras", revisar: "Revisar", caderno: "Caderno", metodo: "Método", ajustes: "Ajustes" };
   let trail = [];
   function trackView(key) {
     const i = trail.indexOf(key);
@@ -225,17 +226,18 @@
   }
   function labelOf(key) {
     if (key.startsWith("etapa-")) { const e = etapaById[key.slice(6)]; return e ? e.name : "Etapas"; }
+    if (key.startsWith("dia-")) return "Dia " + key.slice(4);
     return VIEW_LABEL[key] || "Voltar";
   }
   function backFor(key) {
-    if (key === "intensivo") return null;
-    let prev = trail.length > 1 ? trail[trail.length - 2] : key.startsWith("etapa-") ? "etapas" : "intensivo";
-    if (prev === key) prev = "intensivo";
+    if (key === "semana") return null;
+    let prev = trail.length > 1 ? trail[trail.length - 2] : key.startsWith("etapa-") ? "etapas" : "semana";
+    if (prev === key) prev = "semana";
     return ["#" + prev, labelOf(prev)];
   }
 
   function updateChrome(r, meta) {
-    const navId = r.view === "etapa" ? "etapas" : r.view;
+    const navId = r.view === "etapa" ? "etapas" : r.view === "dia" ? "semana" : r.view;
     $$("[data-nav]").forEach((a) => { if (a.dataset.nav === navId) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     const due = S.dueIds().length;
     $$('[data-badge="revisar"]').forEach((b) => { b.hidden = due === 0; b.textContent = due > 99 ? "99+" : due; });
@@ -258,7 +260,8 @@
   function route() {
     const h = decodeURIComponent((location.hash || "").slice(1));
     if (h.startsWith("etapa-") && etapaById[h.slice(6)]) return { view: "etapa", id: h.slice(6), key: h };
-    const view = VIEWS[h] && h !== "etapa" ? h : "intensivo";
+    if (/^dia-[1-7]$/.test(h)) return { view: "dia", day: +h.slice(4) - 1, key: h };
+    const view = VIEWS[h] && h !== "etapa" && h !== "dia" ? h : "semana";
     return { view, key: view };
   }
 
@@ -316,7 +319,7 @@
       S.state.profile = { name: $("#ob-name").value.trim(), createdAt: new Date().toISOString() };
       S.save();
       $("#app").innerHTML = "";
-      location.hash = "intensivo";
+      location.hash = "semana";
       render();
     });
   }
@@ -328,8 +331,9 @@
   const TOBE = window.TOBE;
   const TOBE_PARTS = window.TOBE_PARTS;
   const tobeLesson = (id) => TOBE.find((l) => l.id === id);
-  const grammarLesson = (id) => TOBE.find((l) => l.id === id) || DODID.find((l) => l.id === id);
-  const trailName = (lid) => (lid[0] === "d" ? "Do, does e did" : "Verbo to be");
+  const poolOf = (id) => ({ d: DODID, p: SOM }[id[0]] || TOBE);
+  const grammarLesson = (id) => poolOf(id).find((l) => l.id === id);
+  const trailName = (lid) => ({ d: "Do, does e did", p: "Som real" }[lid[0]] || "Verbo to be");
 
   function nodeInfo(id) {
     if (id.includes(":")) return etapaInfo(id);
@@ -793,6 +797,15 @@
     const html =
       ltHeader("Método.", { eyebrow: "Como funciona", second: "O que os poliglotas fazem." }) +
       section(tech.length + " técnicas", list(tech.map((t) => cell({ icon: t[0], title: t[1], sub: t[2] })), "icons")) +
+      section("O que a pesquisa diz", list([
+        cell({ icon: "target", title: "Lei de Zipf", sub: "Poucas palavras fazem quase tudo: as 100 mais usadas formam cerca de 50% do Oxford English Corpus, e as 10 primeiras, cerca de 25%. Por isso a semana começa pelo topo da lista." }),
+        cell({ icon: "chat", title: "Mais da metade da fala é pronta", sub: "Erman e Warren (2000) encontraram cerca de 58% de combinações prontas na fala e 52% na escrita. Aprender o bloco inteiro é aprender do jeito que o nativo fala." }),
+        cell({ icon: "star", title: "Filmes e séries", sub: "Frequências tiradas de legendas de filmes e séries (SUBTLEX-US, Brysbaert e New, 2009) refletem melhor as palavras que as pessoas conhecem do que as de livros e jornais." }),
+        cell({ icon: "layers", title: "Abordagem lexical", sub: "Michael Lewis (1993): a língua é feita de blocos de vocabulário mais do que de regras soltas. Os blocos ficam organizados por função: cumprimentar, pedir, reagir, opinar." }),
+        cell({ icon: "link", title: "Expressões de várias palavras", sub: "Martinez e Schmitt (2012) listaram as 505 expressões de várias palavras mais frequentes do inglês, como verbos frasais e expressões idiomáticas. Traduzidas palavra por palavra, elas não fazem sentido." }),
+        cell({ icon: "headphones", title: "Fala encadeada", sub: "Gonna, wanna e hafta aparecem cerca de uma vez a cada dois minutos de conversa espontânea, e o T entre vogais vira um R rápido. Treinar o som real é o que faz você entender as séries." }),
+        cell({ icon: "brain", title: "Quanto vocabulário", sub: "Para entender bem a fala do dia a dia, as pesquisas apontam de 2.000 a 3.000 famílias de palavras para cerca de 95% de cobertura (Adolphs e Schmitt, 2003; Nation, 2006). As 1000 deste app são a parte mais rentável desse caminho." })
+      ], "icons"), "Os números de cobertura são estimativas: variam com o tipo de texto e com a forma de contar as palavras.") +
       section("Depois das 500: as etapas", list(PARTS.map((p, k) => cell({ lead: '<span class="wbadge">' + (k + 1) + "</span>", title: esc(p.name), sub: esc(p.desc) })), "icons"),
         "Cada etapa é um card: estude as palavras, decore as frases com os cards de memória e ensaie as conversas.") +
       section("O dia de 8 horas", list(BLOCKS.map((b, k) => cell({
@@ -872,7 +885,20 @@
     const cut = pid.lastIndexOf(".");
     const e = etapaById[pid.slice(0, cut)];
     const p = e && e.phrases && e.phrases[+pid.slice(cut + 1)];
-    return p ? { pid, en: p[0], pt: p[1], etapa: e } : null;
+    return p ? { pid, en: p[0], pt: p[1], real: p[2] || "", br: p[3] || "", swaps: p[4] || [], etapa: e } : null;
+  }
+  /* Como a frase soa na fala natural, escrita para o ouvido brasileiro, com áudio rápido e devagar. */
+  function soundBox(real, br) {
+    if (!br) return "";
+    return '<div class="sound-box"><p class="eyebrow">Como soa de verdade</p>' +
+      '<p class="sound-br">' + esc(br) + '</p><p class="sound-real" lang="en">' + esc(real) + "</p>" +
+      '<div class="controls"><button class="btn btn-filled btn-capsule" data-action="speak" data-text="' + esc(real) + '">' + icon("play") + "Natural</button>" +
+      '<button class="btn btn-capsule" data-action="speak" data-text="' + esc(real) + '" data-rate="0.65">Devagar</button></div></div>';
+  }
+  function swapsHtml(swaps) {
+    if (!swaps || !swaps.length) return "";
+    return '<div class="swaps"><p class="eyebrow">Troque o final e crie a sua</p><div class="chips" lang="en">' +
+      swaps.map((x) => '<button class="chip" data-action="speak" data-text="' + esc(x) + '">' + esc(x) + "</button>").join("") + "</div></div>";
   }
   function sessionsOf(e) { return e.kind === "words" ? ["w:" + e.id, "f:" + e.id] : [KIND_PREFIX[e.kind] + e.id]; }
   const etapaDone = (e) => sessionsOf(e).every((sid) => S.isDone(sid));
@@ -953,12 +979,12 @@
     const steps = [{ type: "intro" }];
     for (let g = 0; g * 5 < list.length; g++) {
       const ks = all.slice(g * 5, g * 5 + 5);
-      ks.forEach((k) => steps.push({ type: "phrase", pid: pidOf(e, k), en: list[k][0], pt: list[k][1], n: k + 1, of: list.length }));
+      ks.forEach((k) => steps.push({ type: "phrase", pid: pidOf(e, k), en: list[k][0], pt: list[k][1], real: list[k][2] || "", br: list[k][3] || "", swaps: list[k][4] || [], n: k + 1, of: list.length }));
       shuffle(ks).forEach((k, j) => steps.push(j % 2 === 0 && orderable(list[k][0])
         ? { type: "order", order: list[k][0], pt: list[k][1], label: "Monte a frase", pid: pidOf(e, k) }
         : phraseChoice(e, k)));
     }
-    shuffle(all).slice(0, 2).forEach((k, j) => steps.push({ type: "shadow", en: list[k][0], pt: list[k][1], k: j + 1, n: 2 }));
+    shuffle(all).slice(0, 2).forEach((k, j) => steps.push({ type: "shadow", en: list[k][2] || list[k][0], pt: list[k][1], k: j + 1, n: 2 }));
     shuffle(all).slice(0, 3).forEach((k, j) => steps.push({ type: "speak", en: list[k][0], pt: list[k][1], pid: pidOf(e, k), k: j + 1, n: 3 }));
     if (aiReady()) steps.push({ type: "talk", etapa: e.id, words: [], msgs: [] });
     steps.push({ type: "finish" });
@@ -1036,7 +1062,11 @@
     if (info.kind === "wordset") return { title, lead: S.isDone("f:" + e.id) ? "As palavras novas voltam em 10 e 30 minutos." : "Agora decore as " + e.phrases.length + " frases prontas desta etapa.", stats: [[e.idx.length, "palavras"], [acc, "acertos"], [S.counts().seen, "estudadas"]] };
     if (info.kind === "phrases") return { title, lead: "As frases voltam nos cards e na aba Revisar.", stats: [[e.phrases.length, "frases"], [acc, "acertos"], [S.pcounts().seen, "frases vistas"]] };
     if (info.kind === "dialog") return { title, lead: "Ensaie de novo amanhã: na segunda vez a conversa sai mais solta.", stats: [[e.mine.length, "falas suas"], [acc, "acertos"], [P.minutes, "min"]] };
-    if (info.kind === "grammar") return { title, lead: info.review ? "Você completou o do, does e did." : "Use as frases da lição hoje, em voz alta.", stats: [[acc, "acertos"], [DODID.filter((l) => S.isDone("g:" + l.id)).length + "/" + DODID.length, "lições"], [P.minutes, "min"]] };
+    if (info.kind === "grammar") {
+      const gs = ETAPAS.filter((x) => x.kind === "grammar" && x.lesson[0] === e.lesson[0]);
+      const lead = info.review ? "Você completou o do, does e did." : e.lesson[0] === "p" ? "Agora ouça os blocos prontos prestando atenção nesses sons." : "Use as frases da lição hoje, em voz alta.";
+      return { title, lead, stats: [[acc, "acertos"], [gs.filter((x) => S.isDone("g:" + x.id)).length + "/" + gs.length, "lições"], [P.minutes, "min"]] };
+    }
     return { title, lead: "Repita amanhã: com a repetição, a estrutura sai sem pensar.", stats: [[e.verbs.length, "verbos"], [acc, "acertos"], [P.minutes, "min"]] };
   }
   function etapaNextTarget(e, sid) {
@@ -1060,8 +1090,8 @@
       out.push("");
       if (e.extra && e.extra.length) { out.push("OUTRAS FRASES"); e.extra.forEach((p) => out.push(p[0] + " — " + p[1])); }
     } else if (e.phrases) {
-      out.push("FRASES PRONTAS");
-      e.phrases.forEach((p) => out.push(p[0] + " — " + p[1]));
+      out.push(e.phrases.some((p) => p[3]) ? "BLOCOS (inglês — português · como soa)" : "FRASES PRONTAS");
+      e.phrases.forEach((p) => out.push(p[0] + " — " + p[1] + (p[3] ? " · soa: " + p[3] : "")));
     }
     if (e.kind === "grammar") {
       const l = grammarLesson(e.lesson);
@@ -1088,6 +1118,13 @@
   }
   const dialogHtml = (e) => '<div class="chat dialog">' + e.lines.map((l, k) => bubbleHtml(e, l, k)).join("") + "</div>";
 
+  function tobeCard() {
+    const done = S.tobeCount(), total = TOBE.length;
+    return '<a class="etapa-card' + (done === total ? " done" : "") + '" href="#tobe" style="--c:var(--phase-3)"><span class="etapa-icon">' + icon("layers") + "</span>" +
+      '<span class="etapa-body"><span class="etapa-num">Trilha · ' + done + "/" + total + ' lições</span><span class="etapa-title">Verbo to be</span>' +
+      '<span class="etapa-sub">Ser e estar no presente, no passado e no futuro</span>' +
+      '<span class="progress' + (done === total ? " good" : "") + '"><span style="width:' + Math.round((done / total) * 100) + '%"></span></span></span>' + chev() + "</a>";
+  }
   function etapaCard(e) {
     const pr = Math.round(etapaProgress(e) * 100);
     const done = etapaDone(e);
@@ -1132,7 +1169,7 @@
       const items = ETAPAS.filter((e) => e.part === p.key);
       html += '<div class="phase-divider"><span>Parte ' + (k + 1) + " · " + esc(p.name) + "</span></div>" +
         '<p class="subhead secondary center part-desc">' + esc(p.desc) + "</p>" +
-        '<div class="etapa-grid">' + items.map(etapaCard).join("") + "</div>";
+        '<div class="etapa-grid">' + (p.key === "estruturas" ? tobeCard() : "") + items.map(etapaCard).join("") + "</div>";
     });
     return { html, meta: { title: "Etapas" } };
   }
@@ -1143,8 +1180,8 @@
     const st = S.pstatus(pid);
     const note = S.state.pnotes[pid];
     return cell({
-      lead: speakBtn(p[0], "", "Ouvir"), lang: "en",
-      title: esc(p[0]), sub: esc(p[1]) + (note ? ' · <span class="note-mark">' + esc(note) + "</span>" : ""),
+      lead: speakBtn(p[2] || p[0], "", "Ouvir"), lang: "en",
+      title: esc(p[0]), sub: esc(p[1]) + (p[3] ? ' · <span class="sound-inline">soa: ' + esc(p[3]) + "</span>" : "") + (note ? ' · <span class="note-mark">' + esc(note) + "</span>" : ""),
       trail: (st !== "new" ? '<span class="tag' + (st === "learned" ? " good" : " tint") + '">' + STATUS_LABEL[st] + "</span>" : "") +
         '<button class="icon-btn" data-action="phrase" data-pid="' + pid + '" aria-label="Anotar e treinar a pronúncia">' + icon("pencil") + "</button>"
     });
@@ -1216,6 +1253,7 @@
       '<div class="controls"><button class="btn btn-capsule" data-action="speak" data-text="' + esc(p.en) + '" data-rate="0.6">Devagar</button>' +
       (SP.hasMic ? '<button class="btn btn-capsule" data-action="mic-text" data-text="' + esc(p.en) + '">' + icon("mic") + "Testar pronúncia</button>" : "") + "</div>" +
       '<div class="mic-result" id="mic-result" hidden></div>' +
+      soundBox(p.real, p.br) + swapsHtml(p.swaps) +
       '<div class="field-note"><label class="eyebrow" for="sheet-pnote">Sua anotação</label><textarea id="sheet-pnote" class="note-box" data-input="pnote" data-pid="' + pid + '" placeholder="Quando usar, uma variação, uma frase sua">' + esc(S.state.pnotes[pid] || "") + "</textarea></div>" +
       "</div>";
     const close = () => {
@@ -1227,10 +1265,175 @@
     wrap.addEventListener("click", (ev) => { if (ev.target === wrap || ev.target.closest("[data-sheet-close]")) close(); });
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(wrap);
-    if (S.state.settings.autoplay) setTimeout(() => SP.speak(p.en), 200);
+    if (S.state.settings.autoplay) setTimeout(() => SP.speak(p.real || p.en), 200);
   }
 
-  const VIEWS = { intensivo: viewIntensivo, etapas: viewEtapas, etapa: viewEtapa, tobe: viewTobe, palavras: viewPalavras, revisar: viewRevisar, caderno: viewCaderno, metodo: viewMetodo, ajustes: viewAjustes };
+  /* ═══════════════════════ SEMANA ═══════════════════════
+     Plano de 7 dias: as palavras em ordem de frequência (Lei de Zipf), os blocos prontos com o som real,
+     a gramática e as situações. Cada tarefa é uma rodada, prova, lição ou sessão de etapa já existente. */
+  const WEEK = [
+    { title: "O núcleo da língua", goal: "Palavras 1 a 100, o som real, números e cores", upto: 100,
+      tasks: ["g:som", "r1", "r2", "f:bl-oi", "r3", "r4", "t1", "w:numeros", "w:cores", "s:cafeteria"] },
+    { title: "Ação e vontade", goal: "Palavras 101 a 200, gonna e wanna, do e don't", upto: 200,
+      tasks: ["r5", "c1", "f:bl-gonna", "r6", "r7", "t2", "r8", "g:d1", "w:frutas", "w:calendario", "s:restaurante"] },
+    { title: "Perguntar e reagir", goal: "Palavras 201 a 300, perguntas e reações das séries", upto: 300,
+      tasks: ["r9", "r10", "c2", "f:bl-perguntas", "r11", "t3", "t4", "r12", "g:d2", "f:bl-reacoes", "w:comida", "w:compras", "s:balada", "s:academia"] },
+    { title: "Pedir e resolver", goal: "Palavras 301 a 400, pedidos e viagem", upto: 400,
+      tasks: ["r13", "r14", "f:bl-pedir", "r15", "c3", "t5", "r16", "g:d3", "k:treino1", "w:roupas", "w:aeroporto", "w:hotel", "s:checkin", "s:imigracao"] },
+    { title: "Fechando as 500", goal: "Palavras 401 a 500, verbos frasais e o passado com did", upto: 500,
+      tasks: ["r17", "r18", "f:bl-frasais", "r19", "r20", "c4", "t6", "t7", "g:d4", "k:treino2", "w:transporte", "w:emergencias", "w:ligacao", "s:hospedagem", "s:uber"] },
+    { title: "Pessoas e opinião", goal: "Relacionamentos, família, sentimentos e a rotina", upto: 500,
+      tasks: ["f:bl-opiniao", "f:bl-rotina", "w:relacionamentos", "t8", "t9", "w:familia", "g:d5", "w:sentimentos", "k:treino3", "w:saude", "w:casa", "s:encontro", "s:loja", "s:farmacia", "s:direcoes"] },
+    { title: "Trabalho e séries", goal: "Negócios, startups e as falas dos filmes e séries", upto: 500,
+      tasks: ["f:bl-trabalho", "f:bl-series", "w:negocios", "t10", "t11", "w:startups", "g:d6", "k:treino4", "w:escritorio", "w:dinheiro", "s:reuniao", "s:pitch", "s:entrevista"] }
+  ];
+  const dayDone = (d) => d.tasks.filter((id) => S.isDone(id)).length;
+  const currentDay = () => { const k = WEEK.findIndex((d) => dayDone(d) < d.tasks.length); return k < 0 ? WEEK.length - 1 : k; };
+
+  function taskInfo(id) {
+    if (id.includes(":")) {
+      const info = nodeInfo(id);
+      const e = info.etapa;
+      const prefix = { wordset: "Palavras", phrases: e.part === "blocos" ? "Blocos" : "Frases", dialog: "Situação", grammar: "Lição", drill: "Treino" }[info.kind];
+      return { title: prefix + ": " + e.name, sub: etapaSummary(e), icon: e.icon || "grid", est: info.est };
+    }
+    const info = nodeInfo(id);
+    if (info.kind === "round") return { title: "Rodada " + info.n + ": " + info.title, sub: "Palavras " + (info.words[0] + 1) + " a " + (info.words[24] + 1), icon: "layers", est: info.est };
+    if (info.kind === "check") return { title: "Prova do bloco " + info.n, sub: "30 palavras do bloco, do português para o inglês", icon: "trophy", est: info.est };
+    return { title: "To be: " + info.title, sub: info.sub, icon: "book", est: info.est };
+  }
+  function taskRow(id, next) {
+    const t = taskInfo(id);
+    const done = S.isDone(id);
+    const res = resumeFor(id);
+    const tag = done ? '<span class="tag good">Feita</span>' : res ? '<span class="tag tint">Passo ' + (res.i + 1) + "</span>" : id === next ? '<span class="tag tint">Próxima</span>' : '<span class="caption secondary">' + esc(t.est) + "</span>";
+    return cell({ action: "start", attrs: 'data-id="' + id + '" data-force="1"', icon: t.icon, title: esc(t.title), sub: esc(t.sub), value: tag, cls: done ? "done-row" : "" });
+  }
+
+  /* ───────── A Lei de Zipf: quanto do texto as N palavras mais usadas cobrem ─────────
+     Modelo: frequência ∝ 1/posição. Calibrado para as 100 primeiras cobrirem cerca de 50%
+     (Oxford English Corpus). É uma estimativa por forma de palavra. */
+  const ZIPF_V = 18000;
+  const HARM = [0];
+  for (let k = 1; k <= ZIPF_V; k++) HARM[k] = HARM[k - 1] + 1 / k;
+  const coverage = (n) => Math.round((HARM[Math.max(0, Math.min(ZIPF_V, Math.round(n)))] / HARM[ZIPF_V]) * 100);
+
+  function zipfChart(you) {
+    const W = 340, H = 210, L = 38, R = 14, T = 16, B = 34;
+    const x = (n) => L + (n / 1000) * (W - L - R);
+    const y = (pct) => T + (1 - pct / 100) * (H - T - B);
+    const pts = [];
+    for (let n = 0; n <= 1000; n += n < 30 ? 1 : n < 200 ? 5 : 20) pts.push([n, coverage(n)]);
+    const line = pts.map((p, k) => (k ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ");
+    const youN = Math.max(0, Math.min(1000, you));
+    const areaPts = pts.filter((p) => p[0] <= youN).concat([[youN, coverage(youN)]]);
+    const area = youN > 0 ? "M" + x(0) + " " + y(0) + " " + areaPts.map((p) => "L" + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ") + " L" + x(youN).toFixed(1) + " " + y(0) + " Z" : "";
+    const grid = [25, 50, 75, 100].map((g) => '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + y(g) + '" y2="' + y(g) + '"/><text class="tick" x="' + (L - 6) + '" y="' + (y(g) + 4) + '" text-anchor="end">' + g + "%</text>").join("");
+    const xt = [0, 250, 500, 750, 1000].map((n) => '<text class="tick" x="' + x(n) + '" y="' + (H - B + 16) + '" text-anchor="middle">' + n + "</text>").join("");
+    const marks = [[100, "start"], [500, "middle"], [1000, "end"]].map(([n, anchor]) =>
+      '<circle class="mark" cx="' + x(n) + '" cy="' + y(coverage(n)) + '" r="4.5"/>' +
+      '<text class="mark-label" x="' + (x(n) + (anchor === "start" ? 8 : 0)) + '" y="' + (y(coverage(n)) + (anchor === "start" ? 16 : 18)) + '" text-anchor="' + anchor + '">' + n + " · " + coverage(n) + "%</text>").join("");
+    const youMark = youN > 0
+      ? '<line class="you-line" x1="' + x(youN) + '" x2="' + x(youN) + '" y1="' + y(coverage(youN)) + '" y2="' + y(0) + '"/>' +
+        '<circle class="you-dot" cx="' + x(youN) + '" cy="' + y(coverage(youN)) + '" r="5"/>' +
+        '<text class="you-label" x="' + Math.min(W - R - 2, Math.max(L + 2, x(youN))) + '" y="' + (y(coverage(youN)) - 10) + '" text-anchor="' + (youN > 850 ? "end" : youN < 60 ? "start" : "middle") + '">Você: ' + youN + "</text>"
+      : "";
+    return '<div class="zipf" id="zipf"><svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Curva da Lei de Zipf: com 100 palavras você cobre cerca de ' + coverage(100) + "% do texto, com 500 cerca de " + coverage(500) + "% e com 1000 cerca de " + coverage(1000) + '%. Você está em ' + youN + ' palavras.">' +
+      grid + xt + (area ? '<path class="area" d="' + area + '"/>' : "") + '<path class="curve" d="' + line + '"/>' + marks + youMark +
+      '<line class="cross" x1="0" x2="0" y1="' + T + '" y2="' + y(0) + '" hidden/>' +
+      '<text class="axis-title" x="' + ((L + W - R) / 2) + '" y="' + (H - 4) + '" text-anchor="middle">Palavras aprendidas, das mais usadas para as menos</text>' +
+      '</svg><div class="zipf-tip" role="status" hidden></div></div>';
+  }
+  function bindZipf() {
+    const box = $("#zipf");
+    if (!box) return;
+    const svg = $("svg", box), tip = $(".zipf-tip", box), cross = $(".cross", box);
+    const W = 340, L = 38, R = 14;
+    const show = (ev) => {
+      const r = svg.getBoundingClientRect();
+      const vx = ((ev.clientX - r.left) / r.width) * W;
+      const n = Math.round(Math.max(0, Math.min(1000, ((vx - L) / (W - L - R)) * 1000)));
+      cross.setAttribute("x1", vx); cross.setAttribute("x2", vx); cross.hidden = vx < L || vx > W - R;
+      tip.hidden = cross.hidden;
+      tip.textContent = n + " palavras ≈ " + coverage(n) + "% do texto";
+      tip.style.left = Math.max(0, Math.min(r.width - 150, ev.clientX - r.left - 75)) + "px";
+    };
+    svg.addEventListener("pointermove", show);
+    svg.addEventListener("pointerdown", show);
+    svg.addEventListener("pointerleave", () => { tip.hidden = true; cross.hidden = true; });
+  }
+
+  function zipfStudy(you) {
+    return '<div class="card zipf-card">' + zipfChart(you) +
+      '<table class="cola-table zipf-table"><thead><tr><th>Palavras mais usadas</th><th>Quanto do texto cobrem</th></tr></thead><tbody>' +
+      [10, 100, 500, 1000].map((n) => "<tr><th scope=\"row\">" + n + "</th><td>≈ " + coverage(n) + "%</td></tr>").join("") + "</tbody></table></div>" +
+      list([
+        cell({ icon: "zap", title: "A curva despenca", sub: "No seu gráfico, “de” aparece o dobro de “a” e o triplo de “que”. No inglês é igual: the, be, to, of, and. Só as 10 primeiras já são cerca de 25% de tudo." }),
+        cell({ icon: "target", title: "Por isso a semana começa pelo topo", sub: "As 100 primeiras palavras formam cerca de metade de qualquer texto. Cada palavra do começo da fila rende muito mais do que uma do fim." }),
+        cell({ icon: "chat", title: "Depois, o que mais rende são os blocos", sub: "Passando das 1000, cada palavra nova acrescenta pouco. Mas mais da metade do que o nativo fala é feita de blocos prontos. Por isso a semana mistura palavras e blocos todo dia." })
+      ], "icons");
+  }
+
+  function dayCard(d, k, cur) {
+    const done = dayDone(d), total = d.tasks.length;
+    const finished = done === total;
+    const state = finished ? "concluído" : k === cur ? "hoje" : done ? "começado" : "";
+    return '<a class="etapa-card' + (finished ? " done" : "") + (k === cur ? " today" : "") + '" href="#dia-' + (k + 1) + '" style="--c:var(--phase-' + ((k % 4) + 1) + ')">' +
+      '<span class="etapa-icon day-num">' + (k + 1) + "</span>" +
+      '<span class="etapa-body"><span class="etapa-num">Dia ' + (k + 1) + (state ? " · " + state : "") + "</span>" +
+      '<span class="etapa-title">' + esc(d.title) + "</span>" +
+      '<span class="etapa-sub">' + esc(d.goal) + " · " + done + "/" + total + "</span>" +
+      '<span class="progress' + (finished ? " good" : "") + '"><span style="width:' + Math.round((done / total) * 100) + '%"></span></span></span>' +
+      (finished ? '<span class="etapa-check">' + icon("checkFill") + "</span>" : chev()) + "</a>";
+  }
+  function dayCta(d) {
+    const res = d.tasks.find((id) => resumeFor(id) && !S.isDone(id));
+    const next = res || d.tasks.find((id) => !S.isDone(id));
+    if (!next) return { next: null, html: '<p class="headline center">Dia concluído. Amanhã, comece pela aba Revisar.</p>' };
+    return { next, html: '<button class="btn btn-filled btn-large" data-action="start" data-id="' + next + '" data-force="1">' + icon("play") + (res ? "Continuar: " : "Começar: ") + esc(taskInfo(next).title) + "</button>" };
+  }
+
+  function viewSemana() {
+    const cur = currentDay();
+    const d = WEEK[cur];
+    const cta = dayCta(d);
+    const you = S.coreCounts().seen;
+    const allDone = WEEK.every((x) => dayDone(x) === x.tasks.length);
+    const html =
+      ltHeader("Sua semana.", { eyebrow: "Plano de 7 dias", second: allDone ? "Semana concluída." : "Hoje é o dia " + (cur + 1) + "." }) +
+      '<div class="card dash"><p class="eyebrow">Hoje · Dia ' + (cur + 1) + "</p>" +
+      '<p class="title2">' + esc(d.title) + '</p><p class="subhead secondary">' + esc(d.goal) + ". Cerca de 2 a 3 horas, no seu ritmo.</p>" +
+      '<div class="dash-bar"><span class="caption secondary">Hoje</span><div class="progress good"><span style="width:' + Math.round((dayDone(d) / d.tasks.length) * 100) + '%"></span></div></div>' +
+      cta.html + "</div>" +
+      section("Tarefas de hoje", list(d.tasks.map((id) => taskRow(id, cta.next)), "icons"), "Faça na ordem: as palavras vêm das mais usadas para as menos usadas, e cada dia mistura palavras, blocos prontos, gramática e uma situação.") +
+      section("O gráfico: poucas palavras fazem quase tudo", zipfStudy(you), "Estimativa pela Lei de Zipf, contando cada forma de palavra. A linha mostra quanto do texto você cobre conforme aprende as palavras mais usadas.") +
+      section("Os 7 dias", '<div class="etapa-grid">' + WEEK.map((x, k) => dayCard(x, k, cur)).join("") + "</div>") +
+      list([
+        cell({ href: "#metodo", icon: "bulb", title: "O método e a pesquisa", sub: "Lei de Zipf, blocos prontos, filmes e séries e a fala encadeada", chevron: true }),
+        cell({ href: "#intensivo", icon: "route", title: "Prefere fazer as 500 num dia?", sub: "O intensivo de 8 horas continua disponível", chevron: true })
+      ], "icons");
+    return { html, meta: { title: "Semana", hideNav: false }, after: bindZipf };
+  }
+
+  function viewDia(r) {
+    const k = r.day;
+    const d = WEEK[k];
+    const cta = dayCta(d);
+    const prev = WEEK[k - 1], nx = WEEK[k + 1];
+    const nav = [];
+    if (prev) nav.push(cell({ href: "#dia-" + k, icon: "calendar", title: "Dia " + k, sub: esc(prev.title), chevron: true }));
+    if (nx) nav.push(cell({ href: "#dia-" + (k + 2), icon: "calendar", title: "Dia " + (k + 2), sub: esc(nx.title), chevron: true }));
+    const html =
+      ltHeader("Dia " + (k + 1) + ".", { eyebrow: "Plano de 7 dias", second: esc(d.title) + ".", avatar: false }) +
+      '<div class="card dash"><p class="subhead secondary">' + esc(d.goal) + "." + (d.upto <= 500 && k < 5 ? " Ao fim do dia, as " + d.upto + " palavras mais usadas cobrem cerca de " + coverage(d.upto) + "% de tudo que se lê e ouve." : "") + "</p>" +
+      '<div class="dash-bar"><span class="caption secondary">Progresso</span><div class="progress good"><span style="width:' + Math.round((dayDone(d) / d.tasks.length) * 100) + '%"></span></div></div>' +
+      cta.html + "</div>" +
+      section("Tarefas", list(d.tasks.map((id) => taskRow(id, cta.next)), "icons"), "Toque numa tarefa para começar ou refazer.") +
+      list(nav, "icons");
+    return { html, meta: { title: "Dia " + (k + 1) } };
+  }
+
+  const VIEWS = { semana: viewSemana, dia: viewDia, intensivo: viewIntensivo, etapas: viewEtapas, etapa: viewEtapa, tobe: viewTobe, palavras: viewPalavras, revisar: viewRevisar, caderno: viewCaderno, metodo: viewMetodo, ajustes: viewAjustes };
 
   /* ═══════════════════════ PAUSA ═══════════════════════ */
   let breakTimer = null;
@@ -1349,7 +1552,7 @@
 
   function buildTobe(id, sid) {
     const l = grammarLesson(id);
-    const pool = id[0] === "d" ? DODID : TOBE;
+    const pool = poolOf(id);
     const steps = [{ type: "intro" }];
     let exs;
     if (l.review) {
@@ -1512,9 +1715,9 @@
         const nEx = P.steps.filter((s) => s.type === "choice" || s.type === "order").length;
         rows = (info.review ? [] : [["book", "Explicação", "Regras com tabela, em português", "2 min"], ["speaker", "Exemplos com áudio", "Ouça e repita", "1 min"]]).concat([
           ["zap", nEx + " exercícios", "Complete, escolha e monte frases", info.review ? "5 min" : "3 min"],
-          ["headphones", "Shadowing e fale em inglês", info.kind === "grammar" ? "Frases com do, does e did" : "Frases com o verbo to be", "2 min"]
+          ["headphones", "Shadowing e fale em inglês", info.kind !== "grammar" ? "Frases com o verbo to be" : info.lesson[0] === "p" ? "Frases no ritmo natural" : "Frases com do, does e did", "2 min"]
         ]);
-        if (P.steps.some((s) => s.type === "talk")) rows.push(["chat", "Conversa com IA", info.kind === "grammar" ? "Pratique perguntas com do e did" : "Pratique o verbo to be conversando", "3 min"]);
+        if (P.steps.some((s) => s.type === "talk")) rows.push(["chat", "Conversa com IA", info.kind !== "grammar" ? "Pratique o verbo to be conversando" : info.lesson[0] === "p" ? "Converse no ritmo natural" : "Pratique perguntas com do e did", "3 min"]);
       }
       el.innerHTML = '<div class="step-head">' + eyebrow(info.etapa ? esc(info.label) + " · " + info.est : info.kind === "tobe" ? "Verbo to be · " + esc(info.label) + " · " + info.est : esc(info.label) + " · Bloco " + info.block + " · " + info.est) +
         '<h1 class="title1">' + esc(info.title) + "</h1>" +
@@ -1647,11 +1850,12 @@
         '<div class="word-card"><div class="word-top"><p class="phrase-en" style="min-width:0"><span lang="en">' + esc(step.en) + '</span><span class="word-pt">' + esc(step.pt) + "</span></p>" + speakBtn(step.en, "lg", "Ouvir") + "</div>" +
         '<div class="controls"><button class="btn btn-capsule" data-action="speak" data-text="' + esc(step.en) + '" data-rate="0.6">Devagar</button>' + micButton("mic-text", ' data-text="' + esc(step.en) + '"') + "</div>" +
         '<div class="mic-result" id="mic-result" hidden></div>' +
+        soundBox(step.real, step.br) + swapsHtml(step.swaps) +
         '<div class="field-note"><label class="eyebrow" for="pnote">Anotação (opcional)</label><input class="note-box" id="pnote" data-input="pnote" data-pid="' + step.pid + '" value="' + esc(S.state.pnotes[step.pid] || "") + '" placeholder="Quando usar, uma frase sua, um macete" autocomplete="off"></div>' +
         "</div>" +
-        '<p class="footnote secondary center">Ouça, repita em voz alta duas vezes e anote se quiser.</p>';
+        '<p class="footnote secondary center">' + (step.br ? "Repita no ritmo natural, juntando as palavras. Depois anote se quiser." : "Ouça, repita em voz alta duas vezes e anote se quiser.") + "</p>";
       setFoot(primary("Continuar"));
-      autoSpeak(step.en);
+      autoSpeak(step.real || step.en);
     },
 
     pcard(step, el) {
@@ -1662,6 +1866,7 @@
       const n = P.steps.slice(0, P.i + 1).filter(isCard).length;
       const total = P.steps.filter(isCard).length;
       const note = S.state.pnotes[step.pid];
+      const ph = phraseById(step.pid) || {};
       const front = dir === "pt"
         ? '<p class="eyebrow">Diga em inglês</p><p class="phrase-en">' + esc(step.pt) + "</p>" + micButton("mic-text", ' data-text="' + esc(step.en) + '"')
         : '<p class="phrase-en" lang="en">' + esc(step.en) + "</p>" + speakBtn(step.en, "lg", "Ouvir");
@@ -1671,7 +1876,7 @@
       el.innerHTML =
         '<div class="step-head">' + eyebrow((P.kind === "deck" ? "Cards" : "Frases") + " · " + n + " de " + total + " · caixa " + c.box) + "</div>" +
         '<div class="flash">' + front + '<div class="mic-result" id="mic-result" hidden></div>' +
-        '<div class="answer" id="flash-answer" hidden>' + back + (note ? '<p class="footnote secondary">Sua nota: ' + esc(note) + "</p>" : "") + "</div></div>" +
+        '<div class="answer" id="flash-answer" hidden>' + back + (ph.br ? '<p class="sound-line">soa: <b>' + esc(ph.br) + "</b></p>" : "") + (note ? '<p class="footnote secondary">Sua nota: ' + esc(note) + "</p>" : "") + "</div></div>" +
         '<p class="footnote secondary center" id="flash-hint">' + (dir === "pt" ? "Lembre a frase em inglês e diga em voz alta." : "Lembre o significado antes de mostrar a resposta.") + "</p>";
       setFoot(primary("Mostrar resposta", { action: "reveal-p" }));
       if (dir === "en") autoSpeak(step.en);
@@ -1784,6 +1989,8 @@
       ? "ROLE-PLAY. Situation: " + dlg.name + ". You play: " + dlg.who + ". The learner plays themself, a Brazilian. Stay in character and move the scene forward with one short line or question at a time. Reference conversation:\n" + dlg.lines.map((x) => (x[0] === "v" ? "Learner: " : "You: ") + x[1]).join("\n") + "\n"
       : ph
         ? "Today's ready-made phrases. Create small situations where the learner can use them: " + ph.phrases.map((x) => x[0]).join(" | ") + "\n"
+        : l && l.id[0] === "p"
+          ? "Today the learner is practicing natural American connected speech: gonna, wanna, gotta, ya, the flap T and linked words. Speak casually and use these reduced forms in your replies. In \"tip\", show how the learner's last sentence would sound in casual speech.\n"
         : l && l.id[0] === "d"
           ? "Today the learner is practicing DO, DOES and DID. Lesson: \"" + l.title + "\" (" + l.sub + "). Ask simple questions in the present or the past (Do you...? Does she...? Did you...?) that make the learner answer with full sentences. In \"tip\", focus on do, does, did and the base form of the verb.\n"
           : l
@@ -1965,15 +2172,7 @@
     "end-break"() { endBreak(); },
     "finish-break"() { closePlayer(); openBreak(); },
     "player-close"() { requestClose(); },
-    "player-done"() {
-      const info = P && P.info;
-      const eid = P && (P.eid || (info && info.etapa && info.etapa.id));
-      const review = P && P.mode === "review" && !eid;
-      closePlayer();
-      if (review) return;
-      const want = eid ? "etapa-" + eid : info && info.kind === "tobe" ? "tobe" : "intensivo";
-      if (location.hash !== "#" + want) location.hash = want;
-    },
+    "player-done"() { closePlayer(); },
     "go-etapas"() { location.hash = "etapas"; },
     "etapa-next"() {
       const t = P && P.nextTarget;
@@ -2016,7 +2215,7 @@
       const hint = $("#flash-hint");
       if (hint) hint.hidden = true;
       const step = P.steps[P.i];
-      if (step.dirUsed === "pt") SP.speak(step.en);
+      if (step.dirUsed === "pt") SP.speak((phraseById(step.pid) || {}).real || step.en);
       const lab = (g) => "<small>" + S.pintervalLabel(step.pid, g) + "</small>";
       setFoot('<div class="grades">' +
         '<button class="grade again" data-action="pgrade" data-g="again">Errei' + lab("again") + "</button>" +

@@ -35,7 +35,18 @@ Pedidos do aluno que guiaram as etapas:
 - **Intensivo:** continua contando só as 500 essenciais (`S.CORE`). O total geral é `S.N` = 1000.
 - **Botão Voltar:** aparece em todas as telas. A pausa tem um X.
 - **Nuvem:** o envio espera 2,5 s sem mudanças, mas nunca adia mais de 10 s.
-- **Cache offline (`sw.js`):** versão `intensivo500-v5`.
+- **Cache offline (`sw.js`):** versão `intensivo500-v6`.
+- **Semana (tela inicial):**
+  - Plano de 7 dias (`WEEK` em `js/app.js`), feito com as tarefas que já existem: `r1`–`r20`, `c1`–`c4`, `t1`–`t11` e sessões de etapa.
+  - O gráfico de cobertura usa a Lei de Zipf (1/posição), calibrado para 100 palavras ≈ 50%.
+  - O To be saiu da barra de abas. Fica no card das Etapas e no menu lateral.
+- **Blocos e som real (`js/blocos.js`):**
+  - Parte "Blocos prontos e som real" com a lição `p1` (sessão `g:som`) e 10 etapas `bl-*` (118 blocos).
+  - Cada frase pode ter: `[inglês, português, forma falada, pronúncia para brasileiro, trocas]`.
+- **Pedidos do aluno (17/11):**
+  - aprender as palavras na semana, a partir do gráfico de Zipf que ele mandou;
+  - o "som verdadeiro" das frases ("How ya doin'?");
+  - blocos prontos de filmes e séries, com pesquisa sobre o método dos poliglotas.
 - Verificado na conta do Claude às 21h17 (horário de Brasília): 25 palavras estudadas, 1 fixada, perfil "Pedro".
 - O aluno disse estar no bloco 49. O contador mostra 25. Não ficou claro se é diferença real ou falta de registro. A solução é o campo "Já estudei até a palavra nº" em Ajustes.
 - Supabase: 0 registros na checagem do dia 16/11. Isso é esperado, porque o aluno estudou pelo link do Claude.

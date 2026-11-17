@@ -4,6 +4,54 @@ Um app web para aprender **1000 palavras do inglês**:
 
 - **As 500 mais usadas e o verbo to be completo, em 8 horas.** É o intensivo de um dia. O app guia cada passo: quais palavras estudar, quando revisar, quando fazer uma lição de gramática, quando falar e quando fazer pausa.
 - **Mais 500 palavras por área, em etapas.** Cada etapa é um card, com frases prontas do dia a dia, o método do, does e did e conversas para ensaiar.
+- **Plano de 7 dias (aba Semana, a tela inicial).** As palavras vêm das mais usadas para as menos usadas, seguindo a Lei de Zipf. Cada dia mistura palavras, blocos prontos com o som real da fala americana, gramática e uma situação.
+
+## A semana e a Lei de Zipf
+
+Poucas palavras fazem quase tudo: as 100 mais usadas formam cerca de 50% de um texto, e as 10 primeiras, cerca de 25%. A aba **Semana** mostra essa curva com a sua posição ("Você: 49") e divide o estudo em 7 dias:
+
+| Dia | Foco |
+|---|---|
+| 1 | Palavras 1 a 100, a lição do som real, cumprimentos, números e cores |
+| 2 | Palavras 101 a 200, gonna e wanna, do e don't, frutas e calendário |
+| 3 | Palavras 201 a 300, perguntas, reações das séries, comida e compras |
+| 4 | Palavras 301 a 400, pedidos, roupas, aeroporto e hotel |
+| 5 | Palavras 401 a 500, verbos frasais, o passado com did e transporte |
+| 6 | Relacionamentos, família, sentimentos, saúde, casa e a rotina |
+| 7 | Negócios, startups, escritório, dinheiro e as falas das séries |
+
+Cada dia tem de 10 a 15 tarefas: rodadas, provas, lições de to be e de do/does/did, etapas por área e situações. São cerca de 2 a 3 horas por dia. O intensivo de 8 horas continua disponível na aba **Intensivo**.
+
+## Blocos prontos e o som real
+
+Mais da metade do que um nativo fala é feita de combinações prontas. Por isso, a parte **Blocos prontos e som real** tem 118 blocos em 10 etapas: cumprimentos, gonna/wanna/gotta, perguntas, reações, pedidos, verbos frasais, opinião, trabalho, rotina e falas de filmes e séries.
+
+Cada bloco mostra:
+- a frase completa e a tradução;
+- **como soa de verdade:** a forma falada ("How ya doin'?") e a pronúncia escrita para brasileiro ("háu iá dúin?"), com áudio natural e devagar;
+- em alguns blocos, frases para **trocar o final** e criar a sua ("I'm gonna grab a coffee", "I'm gonna head out").
+
+A lição **Como o americano fala de verdade** explica gonna e wanna, o T que vira R (water, later), you que vira ya, did you que vira didja e as palavras que se juntam.
+
+Como ler a pronúncia escrita:
+- **â** é um "a" fraco;
+- **h** é um sopro, como o "r" de "rato";
+- o **r** entre vogais é o "r" de "caro";
+- **d** em "dâ" e "dét" é o TH, com a língua entre os dentes;
+- o **acento** marca a sílaba forte.
+
+### A pesquisa por trás
+
+| Fonte | O que mostra |
+|---|---|
+| Lei de Zipf e Oxford English Corpus | As 100 palavras mais usadas formam cerca de 50% do texto |
+| Erman e Warren (2000) | Cerca de 58% da fala e 52% da escrita são combinações prontas |
+| SUBTLEX-US (Brysbaert e New, 2009) | Frequências de legendas de filmes e séries refletem melhor as palavras que as pessoas conhecem |
+| Abordagem lexical (Michael Lewis, 1993) | A língua é feita de blocos de vocabulário, organizados por função |
+| PHRASE List (Martinez e Schmitt, 2012) | As 505 expressões de várias palavras mais frequentes do inglês |
+| Adolphs e Schmitt (2003); Nation (2006) | De 2.000 a 3.000 famílias de palavras cobrem cerca de 95% da fala do dia a dia |
+
+Os números de cobertura são estimativas. Eles variam com o tipo de texto e com a forma de contar as palavras.
 
 Não precisa de cadastro nem instalação. Funciona no celular, pode ser instalado na tela inicial e continua funcionando offline depois da primeira visita.
 
@@ -93,9 +141,10 @@ Toda etapa tem **cards para memorizar** (repetição espaçada para palavras e f
 
 Em todas as telas, o botão **Voltar** no topo leva à tela anterior.
 
+- **Semana (tela inicial):** o dia de hoje com as tarefas, o gráfico da Lei de Zipf com a sua posição e os 7 dias em cards. Cada dia abre uma página com as suas tarefas.
 - **Intensivo:** painel do dia com as 500 essenciais (estudadas, fixadas, tempo, ritmo e próxima ação), aviso de pausa e trilha com as 20 rodadas e as 4 provas. Na barra de cima, a nuvem mostra se o progresso está salvo.
 - **Etapas:** os 55 cards por parte, com o progresso de palavras, frases e etapas. Cada etapa abre uma página com os botões de estudo, as palavras, as frases ou a conversa, e a lista para copiar.
-- **To be:** a trilha de 11 lições e a cola do verbo to be.
+- **To be:** a trilha de 11 lições e a cola do verbo to be. Fica no card "Verbo to be" da aba Etapas e no menu lateral.
 - **Palavras:** as 1000 palavras com filtro (novas, em treino, fixadas) e busca. Tocar numa palavra abre áudio, exemplo, teste de pronúncia e anotação.
 - **Revisar:** revisões vencidas, frases para revisar, caixas de Leitner, "Treinar as que faltam" e "Revisão relâmpago".
 - **Caderno:** anotações livres e as notas de cada palavra e de cada frase, com dicas de associação.
@@ -130,6 +179,7 @@ js/words.js           as 500 palavras essenciais (inglês, português, exemplo e
 js/areas.js           as etapas por área: as outras 500 palavras e as frases prontas
 js/dodid.js           lições e treinos de verbos com do, does e did
 js/situacoes.js       as situações do cotidiano em diálogo
+js/blocos.js          os blocos prontos com o som real e a lição de fala encadeada
 js/tobe.js            a trilha do verbo to be: explicações, tabelas, exemplos e exercícios
 js/store.js           progresso, revisão espaçada em minutos, cronômetro e posição das etapas
 js/sync.js            sincronização com o Supabase (site) ou com a conta do Claude (link do Claude)
