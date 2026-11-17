@@ -347,7 +347,7 @@ a:hover { text-decoration: none; }
 .cell-title { overflow-wrap: anywhere; }
 .cell-sub { font-size: 14px; line-height: 20px; color: var(--label-2); overflow-wrap: anywhere; letter-spacing: -0.016em; }
 .cell-value { color: var(--label-2); white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 15px; }
-.cell .chev { width: 8px; height: 13px; flex: none; color: var(--label-3); stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; margin-left: -4px; }
+.cell .chev, .etapa-card .chev, .deck-tog .chev { width: 8px; height: 13px; flex: none; color: var(--label-3); stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; margin-left: -4px; }
 .cell.link { color: var(--link); }
 .cell.destructive { color: var(--error); }
 .cell.destructive .cell-body { align-items: center; }
@@ -837,6 +837,52 @@ textarea.note-box { min-height: 72px; }
 .day-num { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
 .etapa-card.today { box-shadow: 0 0 0 2px var(--blue), var(--shadow-soft); }
 .cell.done-row .cell-title { color: var(--label-2); }
+
+/* ───────── Cards como no Anki ───────── */
+.ak-counts { display: inline-flex; gap: 2px; font-variant-numeric: tabular-nums; font-weight: 600; flex: none; }
+.ak-counts > span { min-width: 38px; text-align: right; }
+.ak-new { color: var(--blue); }
+.ak-learn { color: var(--error); }
+.ak-due { color: var(--success); }
+.ak-counts .cur { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 2px; }
+.ak-big { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; }
+.ak-big-item { display: flex; flex-direction: column; gap: 2px; }
+.ak-big-item b { font-family: var(--font-display); font-size: clamp(30px, 9vw, 40px); line-height: 1.1; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.decks { background: var(--cell); border-radius: var(--r-card); box-shadow: var(--shadow-soft); overflow: hidden; }
+.deck-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--label-2); border-bottom: 1px solid var(--separator); }
+.deck-head .ak-counts { font-weight: 600; }
+.deck-row { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 8px 16px; color: var(--label); border-bottom: 1px solid var(--separator); cursor: pointer; }
+.deck-group:last-child > summary, .decks > .deck-row:last-child { border-bottom: 0; }
+.deck-row.child { padding-left: 46px; font-size: 15px; background: var(--cell-2); }
+.deck-name { flex: 1; min-width: 0; color: var(--label); font-weight: 500; overflow-wrap: anywhere; }
+.deck-group > summary { list-style: none; }
+.deck-group > summary::-webkit-details-marker { display: none; }
+.deck-tog { width: 22px; display: grid; place-items: center; color: var(--label-3); transition: transform .2s ease; flex: none; }
+.deck-group[open] > summary .deck-tog { transform: rotate(90deg); }
+@media (hover: hover) { .deck-row:hover { background: var(--pressed); } }
+
+.anki .ak-title { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ak-deck { font-size: 13px; color: var(--label-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anki .ak-title .ak-counts > span { min-width: 30px; text-align: center; }
+.anki #ak-undo[disabled] { opacity: .3; }
+.ak-card { background: var(--cell); border-radius: var(--r-card); padding: 32px 22px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; box-shadow: var(--shadow-medium); min-height: 240px; justify-content: center; }
+.ak-q, .ak-a { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.ak-front { font-family: var(--font-display); font-size: clamp(34px, 10vw, 46px); line-height: 1.1; font-weight: 600; letter-spacing: var(--track-tight); overflow-wrap: anywhere; }
+.ak-front.ak-phrase, .ak-back.ak-phrase { font-size: clamp(24px, 6.6vw, 30px); line-height: 1.2; }
+.ak-back { font-family: var(--font-display); font-size: 26px; line-height: 1.25; font-weight: 600; color: var(--label); overflow-wrap: anywhere; }
+.ak-sep { width: 100%; border: 0; border-top: 1px solid var(--separator); margin: 4px 0; }
+.ak-a .example { text-align: left; width: 100%; }
+.ak-a .sound-box { width: 100%; text-align: left; }
+.ak-grades { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.ak-grades .grade { border-radius: 14px; font-size: 15px; gap: 2px; }
+.ak-grades .grade small { font-size: 12px; font-variant-numeric: tabular-nums; }
+.ak-grades .grade.again { background: var(--error-tint); color: var(--error); }
+.ak-grades .grade.hard { background: var(--fill); color: var(--label); }
+.ak-grades .grade.good { background: var(--success-tint); color: var(--success); }
+.ak-grades .grade.easy { background: var(--blue-tint); color: var(--blue); }
+.ak-grades .grade small { color: inherit; opacity: .8; }
+.tag.ak-learn-tag { background: var(--error-tint); color: var(--error); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

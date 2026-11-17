@@ -117,7 +117,43 @@ O que cada tipo de etapa tem:
 - **Situação:** a conversa completa com tradução e o botão "Ouvir a conversa inteira". No ensaio, você diz as suas falas em inglês depois de ouvir a outra pessoa. Com a IA disponível, ela faz o outro papel.
 - **Do, does e did:** lições no formato do to be. Nos treinos, cada verbo passa por 9 frases: eu, você e ela, afirmando, negando e perguntando, no presente e no passado.
 
-Toda etapa tem **cards para memorizar** (repetição espaçada para palavras e frases) e uma **lista para anotar no caderno**, pronta para copiar. As frases vencidas também aparecem em **Revisar**, e as notas de frases aparecem no **Caderno**.
+Toda etapa tem **cards para memorizar** (como no Anki, para palavras e frases) e uma **lista para anotar no caderno**, pronta para copiar. As notas de frases aparecem no **Caderno**.
+
+## Cards como no Anki
+
+A aba **Cards** funciona como o Anki.
+
+**Baralhos**
+- Todas as cartas.
+- As 500 essenciais, em 4 blocos.
+- Uma pasta para cada parte das etapas, com um baralho para cada etapa.
+
+Cada baralho mostra três números: **novas** (azul), **aprendendo** (vermelho) e **para revisar** (verde).
+
+**Estudo**
+- A frente do card aparece primeiro. Toque em **Mostrar resposta** para ver o verso, com tradução, exemplo, som real e a sua nota.
+- Escolha **Errei**, **Difícil**, **Bom** ou **Fácil**. Cada botão mostra quando o card volta.
+- Atalhos: **espaço** mostra a resposta e marca Bom; **1 a 4** escolhem o botão; **Z** desfaz a última resposta; **Esc** fecha.
+
+**Agendamento** (os padrões do Anki)
+- **Card novo:** passos de aprendizado de 1 e 10 minutos.
+  - "Bom" no último passo forma o card, e ele volta em 1 dia.
+  - "Fácil" forma o card direto em 4 dias.
+- **Revisões:** o intervalo é multiplicado pela facilidade, que começa em 2,5.
+  - Difícil: × 1,2, e a facilidade cai 0,15.
+  - Fácil: × 1,3 a mais, e a facilidade sobe 0,15.
+- **Erro numa revisão:** o card volta a aprender (10 min), a facilidade cai 0,2 e o intervalo recomeça em 1 dia.
+- O dia vira às 4h da manhã.
+
+**Opções e estatísticas**
+- **Novas por dia:** 20, com opções de 10, 30 e 50.
+- **Frente do card:** inglês, português ou alternar.
+- **Estudar mais 10 novas:** aumenta o limite do dia.
+- **Estatísticas:** revisões e novas de hoje, acertos, previsão para amanhã e maturidade (novas, aprendendo, jovens e maduras).
+
+O progresso antigo foi convertido sozinho:
+- palavras nas caixas 1 e 2 → aprendendo;
+- palavras a partir da caixa 3 → revisão.
 
 ## As 13 técnicas
 
@@ -126,7 +162,7 @@ Toda etapa tem **cards para memorizar** (repetição espaçada para palavras e f
 | Frequência primeiro | As 500 palavras em ordem de uso. As 100 primeiras já formam cerca de metade de qualquer texto. |
 | Pedaços pequenos | 5 palavras por vez |
 | Recordação ativa | Teste logo depois de aprender e revisões sem ver a resposta |
-| Repetição espaçada | Caixas de Leitner em minutos: 1 min, 10 min, 30 min, 2 h e amanhã |
+| Repetição espaçada | Como no Anki: passos de 1 e 10 min, depois dias que crescem a cada acerto |
 | Contexto | Cada palavra numa frase real, com tradução |
 | Pronúncia em voz alta | Áudio, versão lenta e teste com o microfone |
 | Shadowing | Repetir junto com o áudio |
@@ -146,7 +182,7 @@ Em todas as telas, o botão **Voltar** no topo leva à tela anterior.
 - **Etapas:** os 55 cards por parte, com o progresso de palavras, frases e etapas. Cada etapa abre uma página com os botões de estudo, as palavras, as frases ou a conversa, e a lista para copiar.
 - **To be:** a trilha de 11 lições e a cola do verbo to be. Fica no card "Verbo to be" da aba Etapas e no menu lateral.
 - **Palavras:** as 1000 palavras com filtro (novas, em treino, fixadas) e busca. Tocar numa palavra abre áudio, exemplo, teste de pronúncia e anotação.
-- **Revisar:** revisões vencidas, frases para revisar, caixas de Leitner, "Treinar as que faltam" e "Revisão relâmpago".
+- **Cards:** os baralhos no estilo do Anki, com novas, aprendendo e revisar; o estudo com os 4 botões; a maturidade das cartas e o estudo extra.
 - **Caderno:** anotações livres e as notas de cada palavra e de cada frase, com dicas de associação.
 - **Método:** as técnicas, o plano das 8 horas e o que esperar de forma realista.
 - **Ajustes:** sincronização, "Já estudei até a palavra nº", nome, voz, tema, backup, reiniciar o cronômetro e apagar tudo.

@@ -35,7 +35,14 @@ Pedidos do aluno que guiaram as etapas:
 - **Intensivo:** continua contando só as 500 essenciais (`S.CORE`). O total geral é `S.N` = 1000.
 - **Botão Voltar:** aparece em todas as telas. A pausa tem um X.
 - **Nuvem:** o envio espera 2,5 s sem mudanças, mas nunca adia mais de 10 s.
-- **Cache offline (`sw.js`):** versão `intensivo500-v6`.
+- **Cache offline (`sw.js`):** versão `intensivo500-v7`.
+- **Cards como no Anki:**
+  - O agendamento em `js/store.js` tem passos de 1 e 10 min, formatura em 1 dia, Fácil em 4 dias e facilidade de 2,5. O dia vira às 4h.
+  - Cada card guarda `q` (new, learn, relearn ou review), `step`, `ivl`, `ease`, `reps` e `lapses`. Guarda também `box`, por compatibilidade.
+  - As funções de cartas por chave começam com `ak*`: `w:índice` para palavra e `p:etapa.n` para frase.
+  - O registro do dia fica em `state.anki`. As opções ficam em `settings.ankiNew` e `settings.ankiDir`.
+  - Tela: a aba Cards (rota `revisar`), `#deck-<id>` e o estudo `openAnki`.
+- **Pedido do aluno (17/11):** flash cards "igual o Anki" dentro do app.
 - **Semana (tela inicial):**
   - Plano de 7 dias (`WEEK` em `js/app.js`), feito com as tarefas que já existem: `r1`–`r20`, `c1`–`c4`, `t1`–`t11` e sessões de etapa.
   - O gráfico de cobertura usa a Lei de Zipf (1/posição), calibrado para 100 palavras ≈ 50%.

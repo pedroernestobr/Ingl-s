@@ -119,7 +119,8 @@
     passport: '<rect x="5" y="3" width="14" height="18" rx="2.5"/><circle cx="12" cy="10.5" r="3"/><path d="M9 16.5h6"/>',
     car: '<path d="M5 16.5V12l2-5h10l2 5v4.5"/><path d="M3.5 12h17v4.5h-17z"/><circle cx="7.5" cy="18" r="1.6"/><circle cx="16.5" cy="18" r="1.6"/>',
     pill: '<rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="m9.5 9.5 5 5"/>',
-    copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'
+    copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'
   };
   const icon = (name, cls) => '<svg class="icon ' + (cls || "") + '" viewBox="0 0 24 24" aria-hidden="true">' + ICON[name] + "</svg>";
   const chev = () => '<svg class="chev" viewBox="0 0 8 13" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5l-5 5"/></svg>';
@@ -196,7 +197,7 @@
     { id: "intensivo", label: "Intensivo", icon: "route" },
     { id: "etapas", label: "Etapas", icon: "grid" },
     { id: "palavras", label: "Palavras", icon: "textformat" },
-    { id: "revisar", label: "Revisar", icon: "cards" },
+    { id: "revisar", label: "Cards", icon: "cards" },
     { id: "caderno", label: "Caderno", icon: "pencil" }
   ];
 
@@ -216,7 +217,7 @@
   }
 
   /* Telas visitadas nesta sessão (a última é a atual). Sustenta o botão Voltar de cada tela. */
-  const VIEW_LABEL = { semana: "Semana", intensivo: "Intensivo", etapas: "Etapas", tobe: "To be", palavras: "Palavras", revisar: "Revisar", caderno: "Caderno", metodo: "Método", ajustes: "Ajustes" };
+  const VIEW_LABEL = { semana: "Semana", intensivo: "Intensivo", etapas: "Etapas", tobe: "To be", palavras: "Palavras", revisar: "Cards", caderno: "Caderno", metodo: "Método", ajustes: "Ajustes" };
   let trail = [];
   function trackView(key) {
     const i = trail.indexOf(key);
@@ -227,6 +228,7 @@
   function labelOf(key) {
     if (key.startsWith("etapa-")) { const e = etapaById[key.slice(6)]; return e ? e.name : "Etapas"; }
     if (key.startsWith("dia-")) return "Dia " + key.slice(4);
+    if (key.startsWith("deck-")) { const d = decks().byId[key.slice(5)]; return d ? d.name : "Cards"; }
     return VIEW_LABEL[key] || "Voltar";
   }
   function backFor(key) {
@@ -237,9 +239,10 @@
   }
 
   function updateChrome(r, meta) {
-    const navId = r.view === "etapa" ? "etapas" : r.view === "dia" ? "semana" : r.view;
+    const navId = r.view === "etapa" ? "etapas" : r.view === "dia" ? "semana" : r.view === "deck" ? "revisar" : r.view;
     $$("[data-nav]").forEach((a) => { if (a.dataset.nav === navId) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
-    const due = S.dueIds().length;
+    const ac = S.akCounts(decks().all.keys);
+    const due = ac.learn + ac.due;
     $$('[data-badge="revisar"]').forEach((b) => { b.hidden = due === 0; b.textContent = due > 99 ? "99+" : due; });
     $("#navbar").hidden = !!meta.hideNav;
     $("#nav-title").textContent = meta.title;
@@ -261,7 +264,8 @@
     const h = decodeURIComponent((location.hash || "").slice(1));
     if (h.startsWith("etapa-") && etapaById[h.slice(6)]) return { view: "etapa", id: h.slice(6), key: h };
     if (/^dia-[1-7]$/.test(h)) return { view: "dia", day: +h.slice(4) - 1, key: h };
-    const view = VIEWS[h] && h !== "etapa" && h !== "dia" ? h : "semana";
+    if (h.startsWith("deck-") && decks().byId[h.slice(5)]) return { view: "deck", deck: h.slice(5), key: h };
+    const view = VIEWS[h] && !["etapa", "dia", "deck"].includes(h) ? h : "semana";
     return { view, key: view };
   }
 
@@ -433,7 +437,7 @@
       list([
         cell({ icon: "layers", title: "20 rodadas de 25 palavras", sub: "Cerca de 20 minutos cada, em grupos de 5 palavras." }),
         cell({ icon: "book", title: "Trilha completa do verbo to be", sub: "11 lições curtas, intercaladas com as rodadas." }),
-        cell({ icon: "repeat", title: "Revisão espaçada em minutos", sub: "1 min, 10 min, 30 min, 2 horas e amanhã." }),
+        cell({ icon: "repeat", title: "Cards como no Anki", sub: "1 e 10 minutos para aprender; depois 1 dia, e o intervalo cresce a cada acerto." }),
         cell({ icon: "mic", title: "Pronúncia e conversa", sub: "Repetir em voz alta, shadowing, falar frases" + (aiReady() ? " e conversar com a IA." : ".") }),
         cell({ icon: "coffee", title: "Pausa de 10 min a cada 50", sub: "O descanso ajuda a memória a fixar." })
       ], "icons flat") +
@@ -717,40 +721,222 @@
     if (box) box.innerHTML = wordGroups(($("#word-search") || {}).value || "");
   }
 
-  /* ═══════════════════════ REVISAR ═══════════════════════ */
-  const BOX_LABEL = ["1 min", "10 min", "30 min", "2 h", "amanhã"];
+  /* ═══════════════════════ CARDS (como no Anki) ═══════════════════════
+     Baralhos com Novas (azul), Aprendendo (vermelho) e Revisar (verde); estudo com frente e verso,
+     quatro botões com o próximo intervalo, desfazer e atalhos de teclado (espaço, 1 a 4, Z). */
+  let DECK_CACHE = null;
+  function decks() {
+    if (DECK_CACHE) return DECK_CACHE;
+    const uniq = (a) => Array.from(new Set(a));
+    const wk = (idxs) => idxs.map((i) => "w:" + i);
+    const pk = (e) => (e.phrases || []).map((_, k) => "p:" + pidOf(e, k));
+    const list = [];
+    const ess = [];
+    for (let b = 1; b <= S.BLOCKS; b++) ess.push({ id: "b" + b, name: "Bloco " + b + " · " + BLOCKS[b - 1].name, keys: wk(S.blockRange(b)) });
+    list.push({ id: "essenciais", name: "500 essenciais", keys: uniq(ess.flatMap((d) => d.keys)), children: ess });
+    PARTS.forEach((p) => {
+      const kids = ETAPAS.filter((e) => e.part === p.key && (e.idx || (e.phrases && e.phrases.length)))
+        .map((e) => ({ id: "e-" + e.id, name: e.name, keys: uniq((e.idx ? wk(e.idx) : []).concat(pk(e))) }));
+      if (kids.length) list.push({ id: "p-" + p.key, name: p.name, keys: uniq(kids.flatMap((d) => d.keys)), children: kids });
+    });
+    const all = { id: "all", name: "Todas as cartas", keys: uniq(list.flatMap((d) => d.keys)), children: [] };
+    const byId = { all };
+    list.forEach((d) => { byId[d.id] = d; d.children.forEach((c) => { c.parent = d.id; byId[c.id] = c; }); });
+    DECK_CACHE = { all, list, byId };
+    return DECK_CACHE;
+  }
+  const deckOfEtapa = (e) => decks().byId["e-" + e.id];
+
+  function countsHtml(c, cur) {
+    const n = (cls, v, q) => '<span class="' + cls + (cur === q ? " cur" : "") + '">' + v + "</span>";
+    return '<span class="ak-counts">' + n("ak-new", c.fresh, "new") + n("ak-learn", c.learn, "learn") + n("ak-due", c.due, "due") + "</span>";
+  }
+  function bigCounts(c) {
+    const one = (cls, v, l) => '<div class="ak-big-item"><b class="' + cls + '">' + v + '</b><span class="caption secondary">' + l + "</span></div>";
+    return '<div class="ak-big">' + one("ak-new", c.fresh, "Novas") + one("ak-learn", c.learn, "Aprendendo") + one("ak-due", c.due, "Revisar") + "</div>";
+  }
+  function deckRow(d, child) {
+    return '<a class="deck-row' + (child ? " child" : "") + '" href="#deck-' + d.id + '"><span class="deck-name">' + esc(d.name) + "</span>" + countsHtml(S.akCounts(d.keys)) + "</a>";
+  }
+  function maturityTiles(keys) {
+    const m = S.akMaturity(keys);
+    const t = (v, l, s) => '<div class="tile"><span class="tile-value">' + v + '</span><span class="caption secondary">' + l + "</span>" + (s ? '<span class="caption tertiary">' + s + "</span>" : "") + "</div>";
+    return '<div class="tiles">' + t(m.fresh, "Novas", "nunca vistas") + t(m.learn, "Aprendendo", "passos de 1 e 10 min") + t(m.young, "Jovens", "menos de 21 dias") + t(m.mature, "Maduras", "21 dias ou mais") + "</div>";
+  }
+
   function viewRevisar() {
-    const due = S.dueIds().length;
-    const c = S.counts();
-    const counts = S.boxCounts();
-    const max = Math.max(1, ...counts);
-    const nextIn = S.nextDueIn();
-    const pc = S.pcounts();
-    const pdue = S.pdueIds().length;
-    let hero;
-    if (due) {
-      hero = '<div class="card pad-lg" style="display:flex;flex-direction:column;gap:16px">' +
-        '<div><p class="big-number">' + due + '</p><p class="subhead secondary">' + (due === 1 ? "palavra no ponto de revisão" : "palavras no ponto de revisão") + "</p></div>" +
-        '<button class="btn btn-filled btn-large" data-action="review">' + icon("play") + "Revisar agora</button></div>";
-    } else if (c.seen) {
-      hero = '<div class="card pad-lg" style="display:flex;flex-direction:column;gap:6px"><p class="title2">Nada vencido agora.</p><p class="subhead secondary">' +
-        (nextIn ? "A próxima revisão vence em " + plural(nextIn, "minuto", "minutos") + ". Enquanto isso, siga para a próxima rodada." : "Siga para a próxima rodada.") + "</p></div>";
-    } else {
-      hero = '<div class="card pad-lg" style="display:flex;flex-direction:column;gap:12px"><p class="title2">Ainda não há palavras.</p><p class="subhead secondary">Cada rodada adiciona 25 palavras. Elas voltam para revisão em 1, 10 e 30 minutos.</p><a class="btn btn-filled btn-large" href="#intensivo">Ir para o intensivo</a></div>';
-    }
-    const boxes = '<div class="card"><div class="boxes" role="img" aria-label="Palavras por caixa: ' + counts.map((n, i) => "caixa " + (i + 1) + ", " + n).join("; ") + '">' +
-      counts.map((n, i) => '<div class="box-col"><b>' + n + '</b><div class="box-bar"><span style="height:' + Math.round((n / max) * 100) + '%"></span></div><span class="caption">Caixa ' + (i + 1) + '</span><span class="caption secondary">' + BOX_LABEL[i] + "</span></div>").join("") +
-      "</div></div>";
+    const D = decks();
+    const c = S.akCounts(D.all.keys);
+    const day = S.akDay();
+    const tomorrow = S.akForecast(D.all.keys);
+    const nowN = c.learn + c.due;
+    const done = day.fresh + day.rev;
     const html =
-      ltHeader("Revisar.", { eyebrow: "Repetição espaçada", second: due ? plural(due, "palavra", "palavras") + " agora." : "Em dia." }) +
-      hero +
-      (pc.seen ? section("Frases prontas", list([cell({ action: "review-phrases", icon: "chat", title: pdue ? "Revisar " + plural(pdue, "frase", "frases") + " agora" : "Nenhuma frase vencida agora", sub: pc.seen + " frases vistas nas etapas · " + pc.learned + " fixadas.", chevron: true })], "icons")) : "") +
-      (c.seen ? section("Suas caixas", boxes, "Acertou, a palavra sobe de caixa e volta mais tarde. Errou, volta para a caixa 1. A partir da caixa 3 ela conta como fixada.") +
-        section("Treino extra", list([
-          cell({ action: "practice-left", icon: "target", title: "Treinar as que faltam", sub: plural(c.training, "palavra estudada e ainda não fixada", "palavras estudadas e ainda não fixadas") + ".", chevron: true }),
-          cell({ action: "practice-random", icon: "shuffle", title: "Revisão relâmpago", sub: "20 palavras aleatórias que você já viu.", chevron: true })
-        ], "icons")) : "");
-    return { html, meta: { title: "Revisar" } };
+      ltHeader("Cards.", { eyebrow: "Repetição espaçada, como no Anki", second: nowN ? plural(nowN, "card", "cards") + " para agora." : c.fresh ? plural(c.fresh, "nova", "novas") + " para hoje." : "Em dia." }) +
+      '<div class="card dash">' + bigCounts(c) +
+      (c.fresh + nowN ? '<button class="btn btn-filled btn-large" data-action="anki" data-deck="all">' + icon("play") + "Estudar agora</button>" : '<p class="headline center">Parabéns! Nada para agora.</p>') +
+      '<p class="footnote secondary center">Hoje: ' + plural(day.rev, "revisão", "revisões") + " e " + plural(day.fresh, "nova", "novas") +
+      (done ? " · " + Math.round(((done - day.again) / done) * 100) + "% de acertos" : "") + ". Amanhã: " + plural(tomorrow, "card", "cards") + ".</p></div>" +
+      section("Baralhos", '<div class="decks"><div class="deck-head"><span>Baralho</span><span class="ak-counts"><span class="ak-new">Novas</span><span class="ak-learn">Apr.</span><span class="ak-due">Rev.</span></span></div>' +
+        deckRow(D.all) +
+        D.list.map((d) => '<details class="deck-group"><summary class="deck-row"><span class="deck-tog" aria-hidden="true">' + chev() + '</span><a class="deck-name" href="#deck-' + d.id + '">' + esc(d.name) + "</a>" + countsHtml(S.akCounts(d.keys)) + "</summary>" +
+          d.children.map((k) => deckRow(k, true)).join("") + "</details>").join("") + "</div>",
+        "Toque num baralho para ver as opções e as cartas. Na seta, abra os baralhos de dentro.") +
+      section("Como no Anki", list([
+        cell({ icon: "repeat", title: "Errei · Difícil · Bom · Fácil", sub: "Cada botão mostra quando o card volta. Card novo: 1 e 10 minutos; depois 1 dia, e o intervalo cresce a cada acerto." }),
+        cell({ icon: "target", title: S.state.settings.ankiNew + " novas por dia", sub: "Mude nas opções de qualquer baralho. As revisões não têm limite." }),
+        cell({ icon: "zap", title: "Atalhos", sub: "Espaço mostra a resposta e marca Bom · 1 a 4 escolhem o botão · Z desfaz." })
+      ], "icons")) +
+      section("Maturidade", maturityTiles(D.all.keys)) +
+      section("Estudo extra", list([
+        cell({ action: "anki-more-home", icon: "layers", title: "Estudar mais 10 novas hoje", sub: "Aumenta o limite de hoje, como no estudo personalizado do Anki.", chevron: true }),
+        cell({ action: "practice-left", icon: "target", title: "Treinar as que faltam", sub: "Palavras estudadas que ainda não se formaram.", chevron: true }),
+        cell({ action: "practice-random", icon: "shuffle", title: "Revisão relâmpago", sub: "20 palavras aleatórias que você já viu.", chevron: true })
+      ], "icons"));
+    return { html, meta: { title: "Cards" } };
+  }
+
+  function cardRow(k) {
+    const c = S.ak(k);
+    let title, sub, attrs, action;
+    if (k[0] === "w") { const w = S.word(+k.slice(2)); title = w.en; sub = w.pt; action = "word"; attrs = 'data-i="' + k.slice(2) + '"'; }
+    else { const p = phraseById(k.slice(2)); title = p.en; sub = p.pt; action = "phrase"; attrs = 'data-pid="' + k.slice(2) + '"'; }
+    let tag;
+    if (!c || c.q === "new") tag = '<span class="tag">Nova</span>';
+    else if (c.q !== "review") tag = '<span class="tag ak-learn-tag">Aprendendo</span>';
+    else {
+      const d = Math.max(0, Math.round((c.due - Date.now()) / 86400000));
+      tag = '<span class="tag ' + (c.ivl >= 21 ? "good" : "tint") + '">' + (d ? "em " + d + " d" : "hoje") + "</span>";
+    }
+    return cell({ action, attrs, title: '<span lang="en">' + esc(title) + "</span>", sub: esc(sub), value: tag });
+  }
+  function viewDeck(r) {
+    const D = decks();
+    const d = D.byId[r.deck] || D.all;
+    const c = S.akCounts(d.keys);
+    const st = S.state.settings;
+    const seg = (name, val, opts, label) => '<div class="segmented" role="group" aria-label="' + label + '" data-setting="' + name + '" style="flex:1">' +
+      opts.map((o) => '<button type="button" data-value="' + o[0] + '" aria-pressed="' + (String(val) === String(o[0])) + '">' + o[1] + "</button>").join("") + "</div>";
+    const shown = d.keys.slice(0, 80);
+    const html =
+      ltHeader(esc(d.name) + ".", { eyebrow: "Baralho", second: plural(d.keys.length, "carta", "cartas") + ".", avatar: false }) +
+      '<div class="card dash">' + bigCounts(c) +
+      (c.fresh + c.learn + c.due ? '<button class="btn btn-filled btn-large" data-action="anki" data-deck="' + d.id + '">' + icon("play") + "Estudar agora</button>" : '<p class="headline center">Parabéns! Nada para agora neste baralho.</p>') +
+      '<p class="footnote secondary center">Novas por dia: ' + st.ankiNew + " (para todos os baralhos). Faltam " + S.akNewLeft() + " hoje.</p></div>" +
+      section("Opções", list([
+        '<div class="cell stack"><span class="cell-title">Novas por dia</span>' + seg("ankiNew", st.ankiNew, [[10, "10"], [20, "20"], [30, "30"], [50, "50"]], "Novas por dia") + "</div>",
+        '<div class="cell stack"><span class="cell-title">Frente do card</span>' + seg("ankiDir", st.ankiDir, [["en", "Inglês"], ["pt", "Português"], ["both", "Alternar"]], "Frente do card") + "</div>"
+      ]), "Inglês na frente treina entender; português na frente treina falar. Alternar faz os dois.") +
+      section("Maturidade", maturityTiles(d.keys)) +
+      section("Cartas", list(shown.map(cardRow), "icons"), d.keys.length > shown.length ? "Mostrando " + shown.length + " de " + d.keys.length + ". Abra um baralho menor para ver todas." : "Toque numa carta para ouvir, testar a pronúncia e anotar.");
+    return { html, meta: { title: d.name } };
+  }
+
+  /* ───────── Estudo ───────── */
+  let A = null;
+  const ANKI_GRADES = [["again", "Errei"], ["hard", "Difícil"], ["good", "Bom"], ["easy", "Fácil"]];
+  function openAnki(deckId, opts) {
+    const d = decks().byId[deckId] || decks().all;
+    if (P) closePlayer();
+    if (A) ankiClose(true);
+    if (!S.state.session.startedAt) S.startSession();
+    A = { deck: d, opts: Object.assign({}, opts), cur: null, shown: false, history: [], studied: 0, good: 0, last: null, startedAt: Date.now() };
+    const el = document.createElement("div");
+    el.className = "player anki";
+    el.id = "anki";
+    el.setAttribute("role", "dialog");
+    el.setAttribute("aria-modal", "true");
+    el.setAttribute("aria-label", "Cards: " + d.name);
+    el.innerHTML =
+      '<div class="player-head"><button class="close-btn" data-action="anki-close" aria-label="Fechar">' + icon("x") + "</button>" +
+      '<div class="ak-title"><span class="ak-deck">' + esc(d.name) + '</span><span id="ak-counts"></span></div>' +
+      '<button class="close-btn" data-action="anki-undo" id="ak-undo" aria-label="Desfazer a última resposta" disabled>' + icon("undo") + "</button></div>" +
+      '<div class="player-body"><div class="player-inner" id="ak-card" tabindex="-1"></div></div>' +
+      '<div class="player-foot"><div class="player-foot-inner" id="ak-foot"></div></div>';
+    document.body.appendChild(el);
+    document.body.style.overflow = "hidden";
+    ankiNext();
+  }
+  function ankiClose(silent) {
+    SP.stop();
+    const el = $("#anki");
+    if (el) el.remove();
+    document.body.style.overflow = "";
+    A = null;
+    if (!silent) { const y = window.scrollY; render(); window.scrollTo(0, y); }
+  }
+  function ankiNext() {
+    A.cur = S.akNext(A.deck.keys, { noNew: A.opts.noNew, skip: A.last });
+    A.shown = false;
+    ankiRender();
+  }
+  const akQueue = (c) => (!c || c.q === "new" ? "new" : c.q === "review" ? "due" : "learn");
+  function ankiDir(k) {
+    const s = S.state.settings.ankiDir || "en";
+    if (s !== "both") return s;
+    const c = S.ak(k);
+    return c && c.reps % 2 === 1 ? "pt" : "en";
+  }
+  function ankiFace(k, dir) {
+    if (k[0] === "w") {
+      const i = +k.slice(2);
+      const w = S.word(i);
+      const note = S.state.notes[i];
+      return {
+        front: dir === "pt" ? '<p class="eyebrow">Diga em inglês</p><p class="ak-front">' + esc(w.pt) + "</p>" + micButton("mic-text", ' data-text="' + esc(w.en) + '"')
+          : '<p class="ak-front" lang="en">' + esc(w.en) + "</p>" + speakBtn(w.en, "lg", "Ouvir " + w.en),
+        back: (dir === "pt" ? '<p class="ak-back" lang="en">' + esc(w.en) + "</p>" + speakBtn(w.en, "", "Ouvir " + w.en) : '<p class="ak-back">' + esc(w.pt) + "</p>") +
+          '<div class="example">' + speakBtn(w.ex, "", "Ouvir exemplo") + '<div style="min-width:0"><p class="headline" lang="en">' + esc(w.ex) + '</p><p class="subhead secondary">' + esc(w.exPt) + "</p></div></div>" +
+          (note ? '<p class="footnote secondary">Sua nota: ' + esc(note) + "</p>" : ""),
+        say: w.en
+      };
+    }
+    const p = phraseById(k.slice(2));
+    const note = S.state.pnotes[p.pid];
+    const say = p.real || p.en;
+    return {
+      front: dir === "pt" ? '<p class="eyebrow">Diga em inglês</p><p class="ak-front ak-phrase">' + esc(p.pt) + "</p>" + micButton("mic-text", ' data-text="' + esc(p.en) + '"')
+        : '<p class="ak-front ak-phrase" lang="en">' + esc(p.en) + "</p>" + speakBtn(say, "lg", "Ouvir"),
+      back: (dir === "pt" ? '<p class="ak-back ak-phrase" lang="en">' + esc(p.en) + "</p>" + speakBtn(say, "", "Ouvir") : '<p class="ak-back">' + esc(p.pt) + "</p>") +
+        soundBox(p.real, p.br) + (note ? '<p class="footnote secondary">Sua nota: ' + esc(note) + "</p>" : ""),
+      say
+    };
+  }
+  function ankiRender() {
+    const el = $("#anki");
+    if (!el || !A) return;
+    const c = S.akCounts(A.deck.keys);
+    if (A.opts.noNew) c.fresh = 0;
+    $("#ak-counts").innerHTML = countsHtml(c, A.cur ? akQueue(S.ak(A.cur)) : null);
+    $("#ak-undo").disabled = !A.history.length;
+    const box = $("#ak-card");
+    const foot = $("#ak-foot");
+    box.style.animation = "none"; void box.offsetWidth; box.style.animation = "";
+    if (!A.cur) {
+      const nextIn = S.akNextIn(A.deck.keys);
+      const unseen = S.akCounts(A.deck.keys).unseen;
+      const mins = Math.max(1, Math.round((Date.now() - A.startedAt) / MIN));
+      box.innerHTML = '<div class="step-head finish"><span class="finish-icon">' + icon("checkFill") + "</span>" +
+        '<h1 class="title1">Parabéns!</h1><p class="body secondary">Você terminou ' + (A.deck.id === "all" ? "os cards" : "este baralho") + " por agora." +
+        (nextIn !== null && nextIn < 720 ? " O próximo card de aprendizado volta em " + (nextIn < 60 ? plural(nextIn, "minuto", "minutos") : Math.round(nextIn / 60) + " h") + "." : " As revisões voltam nos próximos dias.") + "</p></div>" +
+        '<div class="summary center"><div><b>' + A.studied + "</b><small>cards</small></div><div><b>" + (A.studied ? Math.round((A.good / A.studied) * 100) : 0) + "%</b><small>acertos</small></div><div><b>" + mins + "</b><small>min</small></div></div>";
+      foot.innerHTML = '<button class="btn btn-filled btn-large" data-action="anki-close" data-primary>Concluído</button>' +
+        (unseen ? '<button class="btn btn-plain" data-action="anki-more">Estudar mais 10 novas</button>' : "");
+      haptic(20);
+      return;
+    }
+    const dir = ankiDir(A.cur);
+    const f = ankiFace(A.cur, dir);
+    box.innerHTML = '<div class="ak-card"><div class="ak-q">' + f.front + "</div>" +
+      (A.shown ? '<hr class="ak-sep"><div class="ak-a">' + f.back + "</div>" : "") +
+      '<div class="mic-result" id="mic-result" hidden></div></div>';
+    foot.innerHTML = A.shown
+      ? '<div class="grades ak-grades">' + ANKI_GRADES.map(([g, l]) => '<button class="grade ' + g + '" data-action="anki-grade" data-g="' + g + '"' + (g === "good" ? " data-primary" : "") + "><small>" + S.akLabel(A.cur, g) + "</small>" + l + "</button>").join("") + "</div>"
+      : '<button class="btn btn-filled btn-large" data-action="anki-show" data-primary>Mostrar resposta</button>';
+    if (!A.shown && dir === "en") autoSpeak(f.say);
+    if (A.shown && dir === "pt") SP.speak(f.say);
+    try { box.focus({ preventScroll: true }); } catch (e) { /* ignora */ }
+    $("#anki .player-body").scrollTop = 0;
   }
 
   /* ═══════════════════════ CADERNO ═══════════════════════ */
@@ -783,7 +969,7 @@
       ["target", "Frequência primeiro", "As 100 palavras mais comuns formam cerca de metade de tudo o que se lê em inglês. Você começa por elas."],
       ["layers", "Pedaços pequenos", "5 palavras por vez. A memória de trabalho segura poucas coisas ao mesmo tempo."],
       ["zap", "Recordação ativa", "Testar-se fixa mais do que reler. Toda palavra nova é cobrada logo em seguida."],
-      ["repeat", "Repetição espaçada", "1 min, 10 min, 30 min, 2 horas e amanhã. Cada revisão chega quando você está quase esquecendo."],
+      ["repeat", "Repetição espaçada (Anki)", "O mesmo agendamento do Anki: 1 e 10 minutos para aprender, depois 1 dia, e cada acerto multiplica o intervalo. Cada revisão chega quando você está quase esquecendo."],
       ["book", "Contexto", "Cada palavra vem numa frase real, com tradução e áudio."],
       ["mic", "Pronúncia em voz alta", "Ouça, repita e teste com o microfone. A boca também precisa treinar."],
       ["headphones", "Shadowing", "Repita junto com o áudio, imitando ritmo e entonação."],
@@ -1019,19 +1205,6 @@
     return sessionOf(sid, steps);
   }
   /* Cards de memória da etapa: palavras e frases, com as caixas de revisão. */
-  function buildDeck(e) {
-    const steps = [];
-    if (e.idx) shuffle(e.idx).forEach((i) => steps.push({ type: "card", i }));
-    shuffle(phraseIds(e)).forEach((pid) => { const p = phraseById(pid); steps.push({ type: "pcard", pid, en: p.en, pt: p.pt }); });
-    steps.push({ type: "finish" });
-    return { mode: "review", kind: "deck", eid: e.id, steps, i: 0, correct: 0, total: 0, reviewed: 0, easy: 0, startedAt: Date.now() };
-  }
-  function buildPhraseReview() {
-    const steps = S.pdueIds(30).map(phraseById).filter(Boolean).map((p) => ({ type: "pcard", pid: p.pid, en: p.en, pt: p.pt }));
-    steps.push({ type: "finish" });
-    return { mode: "review", kind: "phrases", steps, i: 0, correct: 0, total: 0, reviewed: 0, easy: 0, startedAt: Date.now() };
-  }
-
   function etapaIntroRows(info) {
     const e = info.etapa;
     const talk = P.steps.some((s) => s.type === "talk");
@@ -1433,7 +1606,7 @@
     return { html, meta: { title: "Dia " + (k + 1) } };
   }
 
-  const VIEWS = { semana: viewSemana, dia: viewDia, intensivo: viewIntensivo, etapas: viewEtapas, etapa: viewEtapa, tobe: viewTobe, palavras: viewPalavras, revisar: viewRevisar, caderno: viewCaderno, metodo: viewMetodo, ajustes: viewAjustes };
+  const VIEWS = { semana: viewSemana, dia: viewDia, deck: viewDeck, intensivo: viewIntensivo, etapas: viewEtapas, etapa: viewEtapa, tobe: viewTobe, palavras: viewPalavras, revisar: viewRevisar, caderno: viewCaderno, metodo: viewMetodo, ajustes: viewAjustes };
 
   /* ═══════════════════════ PAUSA ═══════════════════════ */
   let breakTimer = null;
@@ -1858,30 +2031,6 @@
       autoSpeak(step.real || step.en);
     },
 
-    pcard(step, el) {
-      const c = S.pcard(step.pid) || { box: 1 };
-      const dir = c.box >= 2 ? "pt" : "en";
-      step.dirUsed = dir;
-      const isCard = (x) => x.type === "card" || x.type === "pcard";
-      const n = P.steps.slice(0, P.i + 1).filter(isCard).length;
-      const total = P.steps.filter(isCard).length;
-      const note = S.state.pnotes[step.pid];
-      const ph = phraseById(step.pid) || {};
-      const front = dir === "pt"
-        ? '<p class="eyebrow">Diga em inglês</p><p class="phrase-en">' + esc(step.pt) + "</p>" + micButton("mic-text", ' data-text="' + esc(step.en) + '"')
-        : '<p class="phrase-en" lang="en">' + esc(step.en) + "</p>" + speakBtn(step.en, "lg", "Ouvir");
-      const back = dir === "pt"
-        ? '<p class="title2" lang="en">' + esc(step.en) + "</p>" + speakBtn(step.en, "", "Ouvir")
-        : '<p class="title2 steel">' + esc(step.pt) + "</p>";
-      el.innerHTML =
-        '<div class="step-head">' + eyebrow((P.kind === "deck" ? "Cards" : "Frases") + " · " + n + " de " + total + " · caixa " + c.box) + "</div>" +
-        '<div class="flash">' + front + '<div class="mic-result" id="mic-result" hidden></div>' +
-        '<div class="answer" id="flash-answer" hidden>' + back + (ph.br ? '<p class="sound-line">soa: <b>' + esc(ph.br) + "</b></p>" : "") + (note ? '<p class="footnote secondary">Sua nota: ' + esc(note) + "</p>" : "") + "</div></div>" +
-        '<p class="footnote secondary center" id="flash-hint">' + (dir === "pt" ? "Lembre a frase em inglês e diga em voz alta." : "Lembre o significado antes de mostrar a resposta.") + "</p>";
-      setFoot(primary("Mostrar resposta", { action: "reveal-p" }));
-      if (dir === "en") autoSpeak(step.en);
-    },
-
     dialog(step, el) {
       const e = etapaById[step.eid];
       el.innerHTML = '<div class="step-head">' + eyebrow("Situação · ouça a conversa") + '<h1 class="title1">' + esc(e.name) + "</h1>" +
@@ -2164,7 +2313,40 @@
       S.save();
     },
     node(el) { openPopover(el); },
-    review() { if (S.dueIds().length) openPlayer(buildReview("due")); else toast("Nada vencido agora."); },
+    review() { openAnki("all", { noNew: true }); },
+    anki(el) { openAnki(el.dataset.deck || "all", el.dataset.nonew ? { noNew: true } : null); },
+    "anki-show"() { if (!A || !A.cur) return; A.shown = true; ankiRender(); },
+    "anki-grade"(el) {
+      if (!A || !A.cur || !A.shown) return;
+      const g = el.dataset.g;
+      const key = A.cur;
+      const before = S.ak(key);
+      const wasNew = !before || before.q === "new";
+      A.history.push({ key, snap: S.akSnap(key), wasNew, g });
+      S.akGrade(key, g);
+      S.akLog(wasNew, g);
+      A.studied += 1;
+      if (g !== "again") A.good += 1;
+      A.last = key;
+      S.save();
+      haptic(10);
+      ankiNext();
+    },
+    "anki-undo"() {
+      if (!A || !A.history.length) return;
+      const h = A.history.pop();
+      S.akRestore(h.key, h.snap);
+      S.akLog(h.wasNew, h.g, -1);
+      A.studied -= 1;
+      if (h.g !== "again") A.good -= 1;
+      A.cur = h.key; A.shown = false; A.last = null;
+      S.save();
+      ankiRender();
+      toast("Resposta desfeita");
+    },
+    "anki-more"() { S.akMore(10); S.save(); if (A) { A.opts.noNew = false; ankiNext(); } },
+    "anki-more-home"() { S.akMore(10); S.save(); toast("Mais 10 novas liberadas para hoje"); render(); },
+    "anki-close"() { ankiClose(); },
     "practice-left"() { if (S.leftIds().length) openPlayer(buildReview("left")); else toast(S.counts().seen ? "Todas as palavras estudadas já estão fixadas." : "Faça uma rodada primeiro."); },
     "practice-random"() { if (S.counts().seen) openPlayer(buildReview("random")); else toast("Faça uma rodada primeiro."); },
     "take-break"() { openBreak(); },
@@ -2180,10 +2362,10 @@
       if (!t) return;
       if (t.id) startNode(t.id); else location.hash = t.href;
     },
-    deck(el) { const e = etapaById[el.dataset.eid]; if (e) openPlayer(buildDeck(e)); },
+    deck(el) { const e = etapaById[el.dataset.eid]; if (e) openAnki("e-" + e.id); },
     phrase(el) { openPhraseSheet(el.dataset.pid); },
     "mic-text"(el) { runMic(el, el.dataset.text); },
-    "review-phrases"() { const R = buildPhraseReview(); if (R.steps.length > 1) openPlayer(R); else toast("Nenhuma frase para revisar agora."); },
+    "review-phrases"() { openAnki("all", { noNew: true }); },
     async "copy-etapa"(el) {
       const text = copyText(etapaById[el.dataset.eid]);
       try { await navigator.clipboard.writeText(text); toast("Lista copiada. Cole no seu caderno."); }
@@ -2210,32 +2392,6 @@
       if (dialogPlaying === token) dialogPlaying = null;
       el.classList.remove("playing");
     },
-    "reveal-p"() {
-      $("#flash-answer").hidden = false;
-      const hint = $("#flash-hint");
-      if (hint) hint.hidden = true;
-      const step = P.steps[P.i];
-      if (step.dirUsed === "pt") SP.speak((phraseById(step.pid) || {}).real || step.en);
-      const lab = (g) => "<small>" + S.pintervalLabel(step.pid, g) + "</small>";
-      setFoot('<div class="grades">' +
-        '<button class="grade again" data-action="pgrade" data-g="again">Errei' + lab("again") + "</button>" +
-        '<button class="grade hard" data-action="pgrade" data-g="hard">Difícil' + lab("hard") + "</button>" +
-        '<button class="grade easy" data-action="pgrade" data-g="easy" data-primary>Acertei' + lab("easy") + "</button></div>");
-    },
-    pgrade(el) {
-      const step = P.steps[P.i];
-      const g = el.dataset.g;
-      S.pgrade(step.pid, g);
-      P.reviewed += 1;
-      if (g === "easy") P.easy += 1;
-      if (g === "again" && !step.again) {
-        const at = P.steps.findIndex((s, k) => k > P.i && s.type !== "card" && s.type !== "pcard");
-        P.steps.splice(at < 0 ? P.steps.length - 1 : at, 0, Object.assign({}, step, { again: true }));
-      }
-      S.save();
-      haptic(10);
-      next();
-    },
     "next-node"() { const nid = S.nextId(); closePlayer(); if (nid) startNode(nid); },
     next() { next(); },
     skip() { next(); },
@@ -2255,17 +2411,14 @@
       const step = P.steps[P.i];
       if (step.dirUsed === "pt") SP.speak(S.word(step.i).en);
       const lab = (g) => "<small>" + S.intervalLabel(step.i, g) + "</small>";
-      setFoot('<div class="grades">' +
-        '<button class="grade again" data-action="grade" data-g="again">Errei' + lab("again") + "</button>" +
-        '<button class="grade hard" data-action="grade" data-g="hard">Difícil' + lab("hard") + "</button>" +
-        '<button class="grade easy" data-action="grade" data-g="easy" data-primary>Acertei' + lab("easy") + "</button></div>");
+      setFoot('<div class="grades ak-grades">' + ANKI_GRADES.map(([g, l]) => '<button class="grade ' + g + '" data-action="grade" data-g="' + g + '"' + (g === "good" ? " data-primary" : "") + ">" + lab(g) + l + "</button>").join("") + "</div>");
     },
     grade(el) {
       const step = P.steps[P.i];
       const g = el.dataset.g;
       S.grade(step.i, g);
       P.reviewed += 1;
-      if (g === "easy") P.easy += 1;
+      if (g === "good" || g === "easy") P.easy += 1;
       if (g === "again" && !step.again && !step.check) {
         const at = P.steps.findIndex((s, k) => k > P.i && s.type !== "card");
         P.steps.splice(at < 0 ? P.steps.length - 1 : at, 0, Object.assign({}, step, { again: true }));
@@ -2443,12 +2596,29 @@
     const key = group.dataset.setting;
     if (key === "rate") S.state.settings.rate = +b.dataset.value;
     else if (key === "theme") { S.state.settings.theme = b.dataset.value; applyTheme(); }
+    else if (key === "ankiNew") S.state.settings.ankiNew = +b.dataset.value;
+    else if (key === "ankiDir") S.state.settings.ankiDir = b.dataset.value;
     S.save();
     $$("[data-value]", group).forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
     if (key === "rate" && SP.hasTTS) SP.speak("This is how I sound.");
+    if (key === "ankiNew" || key === "ankiDir") { const y = window.scrollY; render(); window.scrollTo(0, y); }
   });
 
   document.addEventListener("keydown", (e) => {
+    if (A && !$(".alert-backdrop") && !$(".sheet-backdrop")) {
+      const t = (e.target.tagName || "").toLowerCase();
+      if (t === "input" || t === "textarea" || t === "select") return;
+      if (e.key === "Escape") { e.preventDefault(); ankiClose(); return; }
+      if (e.key === " " || e.key === "Enter") {
+        if (t === "button" && e.target.closest("#ak-card")) return;
+        e.preventDefault();
+        if (!A.cur) ankiClose(); else if (!A.shown) ACTIONS["anki-show"](); else ACTIONS["anki-grade"]({ dataset: { g: "good" } });
+        return;
+      }
+      if (/^[1-4]$/.test(e.key) && A.shown) { e.preventDefault(); ACTIONS["anki-grade"]({ dataset: { g: ANKI_GRADES[+e.key - 1][0] } }); return; }
+      if (e.key === "z" || e.key === "Z") { e.preventDefault(); ACTIONS["anki-undo"](); }
+      return;
+    }
     if (!P || $(".alert-backdrop")) return;
     const tag = (e.target.tagName || "").toLowerCase();
     if (e.key === "Escape") { e.preventDefault(); requestClose(); return; }
@@ -2468,7 +2638,8 @@
   });
 
   window.addEventListener("hashchange", () => {
-    if (P) closePlayer();
+    if (A) ankiClose();
+    else if (P) closePlayer();
     else render();
     window.scrollTo(0, 0);
     onScroll();
