@@ -35,7 +35,14 @@ Pedidos do aluno que guiaram as etapas:
 - **Intensivo:** continua contando só as 500 essenciais (`S.CORE`). O total geral é `S.N` = 1000.
 - **Botão Voltar:** aparece em todas as telas. A pausa tem um X.
 - **Nuvem:** o envio espera 2,5 s sem mudanças, mas nunca adia mais de 10 s.
-- **Cache offline (`sw.js`):** versão `intensivo500-v7`.
+- **Cache offline (`sw.js`):** versão `intensivo500-v8`.
+- **Foco em escuta (17/11):**
+  - Pedido do aluno: menos coisa, foco em ouvir, na fonética e no que o americano fala de verdade. A gramática fica para depois.
+  - Abas: Ouvir (início, rota `ouvir`) · Conversar · Cards · Caderno · Mais. O resto foi para Mais.
+  - `js/ouvido.js`: parte "ouvido" com 11 etapas `ou-*` do tipo `listen`. Os blocos `bl-*` também viraram `listen`.
+  - Frase de escuta: `[inglês, significado, forma falada, como soa, por que soa assim]`.
+  - Sessão `o:<id>`: passo `hear` (ouvir e escrever), escolha pelo áudio e shadowing.
+  - Decodificador: `soundKey`/`soundMatch` comparam a escrita do aluno com o som da frase.
 - **Cards como no Anki:**
   - O agendamento em `js/store.js` tem passos de 1 e 10 min, formatura em 1 dia, Fácil em 4 dias e facilidade de 2,5. O dia vira às 4h.
   - Cada card guarda `q` (new, learn, relearn ou review), `step`, `ivl`, `ease`, `reps` e `lapses`. Guarda também `box`, por compatibilidade.

@@ -884,6 +884,28 @@ textarea.note-box { min-height: 72px; }
 .ak-grades .grade small { color: inherit; opacity: .8; }
 .tag.ak-learn-tag { background: var(--error-tint); color: var(--error); }
 
+/* ───────── Ouvir: escuta e decodificador ───────── */
+.app-icon .icon { width: 42px; height: 42px; stroke-width: 1.6; }
+.hear-card { background: var(--cell); border-radius: var(--r-card); padding: 26px 20px 20px; display: flex; flex-direction: column; align-items: center; gap: 14px; box-shadow: var(--shadow-medium); }
+.hear-play { width: 84px; height: 84px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--blue); color: var(--on-accent); box-shadow: var(--shadow-medium); }
+.hear-play .icon { width: 34px; height: 34px; margin-left: 4px; }
+.hear-play.playing { opacity: .75; }
+.hear-box { width: 100%; font-size: 20px; text-align: center; padding: 14px 16px; }
+.hear-you { font-size: 15px; line-height: 21px; color: var(--label-2); padding: 0 4px; }
+.hear-you b { color: var(--label); }
+.hear-reveal { display: flex; flex-direction: column; gap: 6px; padding: 18px; border-radius: var(--r-card); background: var(--blue-tint); margin-top: 10px; }
+.hear-reveal .eyebrow { margin-top: 6px; }
+.hear-reveal .eyebrow:first-child { margin-top: 0; }
+.hear-en { font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 600; color: var(--label); overflow-wrap: anywhere; }
+.hear-reveal .controls { margin-top: 8px; }
+.why-line { display: flex; gap: 8px; align-items: flex-start; }
+.why-line .icon { flex: none; margin-top: 3px; color: var(--blue); }
+.decode-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.decode-card .hear-box { text-align: left; }
+.decode-card .list { box-shadow: none; background: var(--cell-2); }
+.decode-br { color: var(--blue); font-weight: 600; }
+.decode-empty { padding: 0 4px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

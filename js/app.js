@@ -193,19 +193,18 @@
 
   /* ───────── Navegação ───────── */
   const NAV = [
-    { id: "semana", label: "Semana", icon: "calendar" },
-    { id: "intensivo", label: "Intensivo", icon: "route" },
-    { id: "etapas", label: "Etapas", icon: "grid" },
-    { id: "palavras", label: "Palavras", icon: "textformat" },
+    { id: "ouvir", label: "Ouvir", icon: "headphones" },
+    { id: "conversar", label: "Conversar", icon: "chat" },
     { id: "revisar", label: "Cards", icon: "cards" },
-    { id: "caderno", label: "Caderno", icon: "pencil" }
+    { id: "caderno", label: "Caderno", icon: "pencil" },
+    { id: "mais", label: "Mais", icon: "grid" }
   ];
 
   function renderShell() {
     $("#app").innerHTML =
       '<div class="app">' +
       '<nav class="sidebar" aria-label="Navegação principal"><p class="side-title title2">Intensivo 1000</p>' +
-      NAV.concat([{ id: "tobe", label: "To be", icon: "layers" }, { id: "metodo", label: "Método", icon: "book" }, { id: "ajustes", label: "Ajustes", icon: "gear" }]).map((n) => '<a class="side-link" data-nav="' + n.id + '" href="#' + n.id + '">' + icon(n.icon) + "<span>" + n.label + '</span><span class="badge" data-badge="' + n.id + '" hidden></span></a>').join("") +
+      NAV.slice(0, 4).concat([{ id: "semana", label: "Plano de 7 dias", icon: "calendar" }, { id: "intensivo", label: "Intensivo", icon: "route" }, { id: "etapas", label: "Etapas", icon: "grid" }, { id: "palavras", label: "Palavras", icon: "textformat" }, { id: "tobe", label: "To be", icon: "layers" }, { id: "metodo", label: "Método", icon: "book" }, { id: "ajustes", label: "Ajustes", icon: "gear" }]).map((n) => '<a class="side-link" data-nav="' + n.id + '" href="#' + n.id + '">' + icon(n.icon) + "<span>" + n.label + '</span><span class="badge" data-badge="' + n.id + '" hidden></span></a>').join("") +
       '<p class="side-foot footnote secondary" id="side-foot"></p></nav>' +
       '<div class="main"><div class="main-inner">' +
       '<header class="navbar" id="navbar"><div class="navbar-inner"><div class="nav-left" id="nav-left"></div><div class="nav-title" id="nav-title"></div><div class="nav-right" id="nav-right"></div></div></header>' +
@@ -217,7 +216,7 @@
   }
 
   /* Telas visitadas nesta sessão (a última é a atual). Sustenta o botão Voltar de cada tela. */
-  const VIEW_LABEL = { semana: "Semana", intensivo: "Intensivo", etapas: "Etapas", tobe: "To be", palavras: "Palavras", revisar: "Cards", caderno: "Caderno", metodo: "Método", ajustes: "Ajustes" };
+  const VIEW_LABEL = { ouvir: "Ouvir", conversar: "Conversar", mais: "Mais", semana: "Semana", intensivo: "Intensivo", etapas: "Etapas", tobe: "To be", palavras: "Palavras", revisar: "Cards", caderno: "Caderno", metodo: "Método", ajustes: "Ajustes" };
   let trail = [];
   function trackView(key) {
     const i = trail.indexOf(key);
@@ -232,15 +231,22 @@
     return VIEW_LABEL[key] || "Voltar";
   }
   function backFor(key) {
-    if (key === "semana") return null;
-    let prev = trail.length > 1 ? trail[trail.length - 2] : key.startsWith("etapa-") ? "etapas" : "semana";
-    if (prev === key) prev = "semana";
+    if (key === "ouvir") return null;
+    let prev = trail.length > 1 ? trail[trail.length - 2] : key.startsWith("deck-") ? "revisar" : "ouvir";
+    if (prev === key) prev = "ouvir";
     return ["#" + prev, labelOf(prev)];
   }
 
+  /* Qual aba fica acesa: Ouvir, Conversar, Cards, Caderno ou Mais. */
+  function tabOf(r) {
+    if (r.view === "deck") return "revisar";
+    if (r.view === "etapa") { const e = etapaById[r.id]; return e && (e.kind === "listen" || e.id === "som") ? "ouvir" : e && e.kind === "dialog" ? "conversar" : "mais"; }
+    return ["ouvir", "conversar", "revisar", "caderno"].includes(r.view) ? r.view : "mais";
+  }
+
   function updateChrome(r, meta) {
-    const navId = r.view === "etapa" ? "etapas" : r.view === "dia" ? "semana" : r.view === "deck" ? "revisar" : r.view;
-    $$("[data-nav]").forEach((a) => { if (a.dataset.nav === navId) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+    const navId = tabOf(r);
+    $$("[data-nav]").forEach((a) => { if (a.dataset.nav === navId || a.dataset.nav === r.view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     const ac = S.akCounts(decks().all.keys);
     const due = ac.learn + ac.due;
     $$('[data-badge="revisar"]').forEach((b) => { b.hidden = due === 0; b.textContent = due > 99 ? "99+" : due; });
@@ -265,7 +271,7 @@
     if (h.startsWith("etapa-") && etapaById[h.slice(6)]) return { view: "etapa", id: h.slice(6), key: h };
     if (/^dia-[1-7]$/.test(h)) return { view: "dia", day: +h.slice(4) - 1, key: h };
     if (h.startsWith("deck-") && decks().byId[h.slice(5)]) return { view: "deck", deck: h.slice(5), key: h };
-    const view = VIEWS[h] && !["etapa", "dia", "deck"].includes(h) ? h : "semana";
+    const view = VIEWS[h] && !["etapa", "dia", "deck"].includes(h) ? h : "ouvir";
     return { view, key: view };
   }
 
@@ -300,14 +306,13 @@
   function renderOnboarding() {
     $("#app").innerHTML =
       '<div class="welcome"><div class="welcome-inner">' +
-      '<div class="app-icon" aria-hidden="true">1000</div>' +
-      '<h1 class="h1 center two-tone">1000 palavras.<span class="second">As 500 essenciais hoje.</span></h1>' +
+      '<div class="app-icon" aria-hidden="true">' + icon("headphones") + "</div>" +
+      '<h1 class="h1 center two-tone">Entenda o inglês.<span class="second">Do jeito que o americano fala.</span></h1>' +
       '<div class="features">' +
-      [["target", "As 500 que mais importam", "As palavras mais usadas do inglês, em ordem de frequência. As 100 primeiras já formam cerca de metade de qualquer texto."],
-        ["layers", "5 palavras por vez", "Ver, ouvir, repetir em voz alta, anotar e testar. Em grupos pequenos, como fazem os poliglotas."],
-        ["repeat", "Revisão no minuto certo", "Cada palavra volta em 1, 10 e 30 minutos e depois em 2 horas, antes de você esquecer."],
-        ["chat", "Pronúncia e conversa", "Shadowing, falar frases em inglês e conversar com a IA em toda rodada."],
-        ["grid", "Etapas por área", "Números, cores, comida, aeroporto, negócios, startups e relacionamentos, com frases prontas e conversas para ensaiar."]]
+      [["headphones", "Ouvido primeiro", "Frases reais, no ritmo do americano. Você ouve antes de ler."],
+        ["pencil", "Escreva como ouviu", "Com letras do português, tipo “uárâzit mín”. O app mostra o que é em inglês e o que significa."],
+        ["chat", "Converse", "Situações do dia a dia: ouça a outra pessoa e responda em voz alta."],
+        ["cards", "Cards como no Anki", "Cada frase volta para revisão na hora certa."]]
         .map((f) => '<div class="feature-row"><span class="ficon">' + icon(f[0]) + '</span><div><p class="headline">' + f[1] + '</p><p class="subhead secondary">' + f[2] + "</p></div></div>").join("") +
       "</div>" +
       '<form id="onboard-form" class="view" novalidate style="gap:24px">' +
@@ -323,7 +328,7 @@
       S.state.profile = { name: $("#ob-name").value.trim(), createdAt: new Date().toISOString() };
       S.save();
       $("#app").innerHTML = "";
-      location.hash = "semana";
+      location.hash = "ouvir";
       render();
     });
   }
@@ -543,7 +548,7 @@
         cell({ href: "#etapas", icon: "grid", title: "Depois das 500: as etapas", sub: "Mais 500 palavras por área, frases prontas e situações do dia a dia", chevron: true }),
         cell({ href: "#metodo", icon: "bulb", title: "Como funciona o método", sub: "As técnicas e o plano das 8 horas", chevron: true })
       ], "icons");
-    return { html, meta: { title: "Intensivo", hideNav: true } };
+    return { html, meta: { title: "Intensivo" } };
   }
 
   /* ═══════════════════════ VERBO TO BE ═══════════════════════ */
@@ -730,15 +735,19 @@
     const uniq = (a) => Array.from(new Set(a));
     const wk = (idxs) => idxs.map((i) => "w:" + i);
     const pk = (e) => (e.phrases || []).map((_, k) => "p:" + pidOf(e, k));
-    const list = [];
+    const parts = [];
     const ess = [];
     for (let b = 1; b <= S.BLOCKS; b++) ess.push({ id: "b" + b, name: "Bloco " + b + " · " + BLOCKS[b - 1].name, keys: wk(S.blockRange(b)) });
-    list.push({ id: "essenciais", name: "500 essenciais", keys: uniq(ess.flatMap((d) => d.keys)), children: ess });
+    const essDeck = { id: "essenciais", name: "500 essenciais", keys: uniq(ess.flatMap((d) => d.keys)), children: ess };
     PARTS.forEach((p) => {
       const kids = ETAPAS.filter((e) => e.part === p.key && (e.idx || (e.phrases && e.phrases.length)))
         .map((e) => ({ id: "e-" + e.id, name: e.name, keys: uniq((e.idx ? wk(e.idx) : []).concat(pk(e))) }));
-      if (kids.length) list.push({ id: "p-" + p.key, name: p.name, keys: uniq(kids.flatMap((d) => d.keys)), children: kids });
+      if (kids.length) parts.push({ id: "p-" + p.key, name: p.name, keys: uniq(kids.flatMap((d) => d.keys)), children: kids, key: p.key });
     });
+    /* O foco é ouvir: os baralhos de escuta e de conversa vêm primeiro, também na ordem das cartas novas. */
+    const first = ["ouvido", "blocos", "situacoes"];
+    const list = first.map((k) => parts.find((d) => d.key === k)).filter(Boolean)
+      .concat([essDeck], parts.filter((d) => !first.includes(d.key)));
     const all = { id: "all", name: "Todas as cartas", keys: uniq(list.flatMap((d) => d.keys)), children: [] };
     const byId = { all };
     list.forEach((d) => { byId[d.id] = d; d.children.forEach((c) => { c.parent = d.id; byId[c.id] = c; }); });
@@ -1062,8 +1071,8 @@
   /* ═══════════════════════ ETAPAS ═══════════════════════
      Cada etapa é um card. Sessões de estudo: "w:" palavras, "f:" frases, "s:" situação (diálogo),
      "g:" lição de do/does/did e "k:" treino de verbos. Frases: chave "etapa.n". */
-  const SESSION_KIND = { w: "wordset", f: "phrases", s: "dialog", g: "grammar", k: "drill" };
-  const KIND_PREFIX = { phrases: "f:", dialog: "s:", grammar: "g:", drill: "k:" };
+  const SESSION_KIND = { w: "wordset", f: "phrases", s: "dialog", g: "grammar", k: "drill", o: "listen" };
+  const KIND_PREFIX = { phrases: "f:", dialog: "s:", grammar: "g:", drill: "k:", listen: "o:" };
   const pidOf = (e, k) => e.id + "." + k;
   let dialogPlaying = null;
 
@@ -1071,7 +1080,7 @@
     const cut = pid.lastIndexOf(".");
     const e = etapaById[pid.slice(0, cut)];
     const p = e && e.phrases && e.phrases[+pid.slice(cut + 1)];
-    return p ? { pid, en: p[0], pt: p[1], real: p[2] || "", br: p[3] || "", swaps: p[4] || [], etapa: e } : null;
+    return p ? { pid, en: p[0], pt: p[1], real: p[2] || "", br: p[3] || "", swaps: Array.isArray(p[4]) ? p[4] : [], why: typeof p[4] === "string" ? p[4] : "", etapa: e } : null;
   }
   /* Como a frase soa na fala natural, escrita para o ouvido brasileiro, com áudio rápido e devagar. */
   function soundBox(real, br) {
@@ -1087,7 +1096,7 @@
       swaps.map((x) => '<button class="chip" data-action="speak" data-text="' + esc(x) + '">' + esc(x) + "</button>").join("") + "</div></div>";
   }
   function sessionsOf(e) { return e.kind === "words" ? ["w:" + e.id, "f:" + e.id] : [KIND_PREFIX[e.kind] + e.id]; }
-  const etapaDone = (e) => sessionsOf(e).every((sid) => S.isDone(sid));
+  const etapaDone = (e) => sessionsOf(e).every((sid) => S.isDone(sid)) || (e.kind === "listen" && S.isDone("f:" + e.id));
   function etapasDoneCount() { return ETAPAS.filter(etapaDone).length; }
   const phraseIds = (e) => (e.phrases || []).map((_, k) => pidOf(e, k));
   function etapaProgress(e) {
@@ -1096,7 +1105,7 @@
       const res = resumeFor(sid);
       let f = res ? res.i / Math.max(1, stepsLeft(res)) : 0;
       if (sid[0] === "w") f = Math.max(f, seenIn(e.idx) / e.idx.length);
-      if (sid[0] === "f" || sid[0] === "s") f = Math.max(f, S.pcounts(phraseIds(e)).seen / Math.max(1, e.phrases.length));
+      if (sid[0] === "f" || sid[0] === "s" || sid[0] === "o") f = Math.max(f, S.pcounts(phraseIds(e)).seen / Math.max(1, e.phrases.length));
       return Math.min(0.95, f);
     });
     return parts.reduce((a, b) => a + b, 0) / parts.length;
@@ -1104,6 +1113,7 @@
   function etapaSummary(e) {
     if (e.kind === "words") return e.idx.length + " palavras · " + e.phrases.length + " frases";
     if (e.kind === "phrases") return e.phrases.length + " frases prontas";
+    if (e.kind === "listen") return e.phrases.length + " frases para ouvir";
     if (e.kind === "dialog") return "Diálogo · " + e.lines.length + " falas";
     if (e.kind === "grammar") return "Lição · " + e.desc;
     return e.verbs.length + " verbos · 9 frases cada";
@@ -1116,11 +1126,89 @@
     if (kind === "wordset") return Object.assign(base, { words: e.idx, label: "Etapa " + e.n + " · palavras", est: "15 min" });
     if (kind === "phrases") return Object.assign(base, { label: "Etapa " + e.n + " · frases", est: Math.max(5, Math.round(e.phrases.length * 0.7)) + " min" });
     if (kind === "dialog") return Object.assign(base, { label: "Etapa " + e.n + " · situação", est: "10 min" });
+    if (kind === "listen") return Object.assign(base, { label: "Etapa " + e.n + " · ouvido", est: Math.max(6, Math.round(e.phrases.length * 1.2)) + " min" });
     if (kind === "grammar") {
       const l = grammarLesson(e.lesson);
       return Object.assign(base, { lesson: e.lesson, review: !!l.review, label: "Etapa " + e.n + " · lição", est: l.review ? "8 min" : "6 min" });
     }
     return Object.assign(base, { label: "Etapa " + e.n + " · treino", est: e.verbs.length * 2 + " min" });
+  }
+
+  /* ═══════════════════════ OUVIDO ═══════════════════════
+     Do jeito que se ouve: o aluno escreve o que ouviu com letras do português e o app compara pelo som.
+     soundKey() reduz qualquer escrita a uma "chave de som" (sem acentos, h = r, w = u, ch = x…). */
+  function soundKey(t) {
+    let s = String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z]/g, "");
+    s = s.replace(/tch/g, "x").replace(/ch/g, "x").replace(/sh/g, "x").replace(/dj/g, "j").replace(/gu(?=[ei])/g, "g")
+      .replace(/ph/g, "f").replace(/th/g, "t").replace(/ck/g, "k").replace(/qu/g, "k").replace(/c(?=[ei])/g, "s").replace(/c/g, "k")
+      .replace(/h/g, "r").replace(/w/g, "u").replace(/y/g, "i").replace(/v/g, "f").replace(/z/g, "s").replace(/(.)\1+/g, "$1");
+    return s;
+  }
+  function editDistance(a, b, free) {
+    const n = a.length, m = b.length;
+    let prev = new Array(m + 1);
+    for (let j = 0; j <= m; j++) prev[j] = free ? 0 : j;
+    for (let i = 1; i <= n; i++) {
+      const cur = [i];
+      for (let j = 1; j <= m; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return free ? Math.min(...prev) : prev[m];
+  }
+  /* 0 a 1: quanto a escrita do aluno se parece com o som da frase (inteira ou um pedaço dela). */
+  function soundMatch(typed, target) {
+    const a = soundKey(typed), b = soundKey(target);
+    if (!a || !b) return 0;
+    const whole = 1 - editDistance(a, b) / Math.max(a.length, b.length);
+    const part = (1 - editDistance(a, b, true) / a.length) * (0.75 + 0.25 * Math.min(1, a.length / b.length));
+    return Math.max(0, whole, a.length >= 4 ? part : 0);
+  }
+  let LISTEN_POOL = null;
+  function listenPool() {
+    if (!LISTEN_POOL) {
+      LISTEN_POOL = [];
+      ETAPAS.filter((e) => e.kind === "listen").forEach((e) => e.phrases.forEach((p, k) => { if (p[3]) LISTEN_POOL.push(phraseById(pidOf(e, k))); }));
+    }
+    return LISTEN_POOL;
+  }
+  function decode(text) {
+    if (soundKey(text).length < 3) return [];
+    return listenPool()
+      .map((p) => ({ p, s: Math.max(soundMatch(text, p.br), soundMatch(text, p.real), soundMatch(text, p.en)) }))
+      .filter((r) => r.s >= 0.45)
+      .sort((x, y) => y.s - x.s)
+      .filter((r, i, a) => a.findIndex((o) => o.p.en === r.p.en) === i)
+      .slice(0, 5);
+  }
+  function decodeHtml(text) {
+    const res = decode(text);
+    if (!text.trim()) return "";
+    if (!res.length) return '<p class="footnote secondary decode-empty">Ainda não achei. Tente escrever mais um pedaço, do jeito que soa.</p>';
+    return list(res.map((r) =>
+      '<div class="cell tappable" role="button" tabindex="0" data-action="phrase" data-pid="' + r.p.pid + '">' + speakBtn(r.p.real || r.p.en, "", "Ouvir") +
+      '<span class="cell-body"><span class="cell-title decode-br">' + esc(r.p.br) + '</span><span class="cell-sub"><b lang="en">' + esc(r.p.en) + "</b> · " + esc(r.p.pt) + "</span></span>" +
+      '<span class="cell-value"><span class="tag tint">' + Math.round(r.s * 100) + "%</span></span></div>"), "icons");
+  }
+
+  /* Sessão de escuta: ouvir sem ler e escrever como ouviu → ver o que é → escolher pelo som → falar igual. */
+  function buildListen(e, sid) {
+    const list = e.phrases;
+    const all = list.map((_, k) => k);
+    const steps = [{ type: "intro" }];
+    for (let g = 0; g * 4 < list.length; g++) {
+      const ks = all.slice(g * 4, g * 4 + 4);
+      ks.forEach((k) => steps.push({ type: "hear", pid: pidOf(e, k), n: k + 1, of: list.length }));
+      shuffle(ks).forEach((k, j) => {
+        const p = list[k];
+        const pool = list.filter((_, x) => x !== k);
+        steps.push(j % 2 === 0
+          ? makeChoice("O que você ouviu?", p[0], shuffle(pool).slice(0, 3).map((x) => x[0]), { listen: p[2] || p[0], pid: pidOf(e, k), e: p[0] + " = " + p[1], say: p[2] || p[0], label: "Escuta" })
+          : makeChoice("O que significa o que você ouviu?", p[1], shuffle(pool).slice(0, 3).map((x) => x[1]), { listen: p[2] || p[0], pid: pidOf(e, k), e: p[0] + " = " + p[1], label: "Escuta" }));
+      });
+    }
+    shuffle(all).slice(0, 3).forEach((k, j) => steps.push({ type: "shadow", en: list[k][2] || list[k][0], pt: list[k][1] + " · soa: " + list[k][3], k: j + 1, n: 3 }));
+    steps.push({ type: "finish" });
+    return sessionOf(sid, steps);
   }
 
   /* ───────── Sessões das etapas ───────── */
@@ -1140,6 +1228,7 @@
     if (kind === "wordset") return buildWordSet(e, sid);
     if (kind === "phrases") return buildPhrases(e, sid);
     if (kind === "dialog") return buildDialog(e, sid);
+    if (kind === "listen") return buildListen(e, sid);
     if (kind === "grammar") return buildTobe(e.lesson, sid);
     return buildDrill(e, sid);
   }
@@ -1165,7 +1254,7 @@
     const steps = [{ type: "intro" }];
     for (let g = 0; g * 5 < list.length; g++) {
       const ks = all.slice(g * 5, g * 5 + 5);
-      ks.forEach((k) => steps.push({ type: "phrase", pid: pidOf(e, k), en: list[k][0], pt: list[k][1], real: list[k][2] || "", br: list[k][3] || "", swaps: list[k][4] || [], n: k + 1, of: list.length }));
+      ks.forEach((k) => steps.push({ type: "phrase", pid: pidOf(e, k), en: list[k][0], pt: list[k][1], real: list[k][2] || "", br: list[k][3] || "", swaps: Array.isArray(list[k][4]) ? list[k][4] : [], n: k + 1, of: list.length }));
       shuffle(ks).forEach((k, j) => steps.push(j % 2 === 0 && orderable(list[k][0])
         ? { type: "order", order: list[k][0], pt: list[k][1], label: "Monte a frase", pid: pidOf(e, k) }
         : phraseChoice(e, k)));
@@ -1214,6 +1303,14 @@
       if (talk) rows.push(["chat", "Conversa com IA", "Use as frases desta etapa", "3 min"]);
       return rows;
     }
+    if (info.kind === "listen") {
+      return [
+        ["headphones", e.phrases.length + " frases, sem ler", "Ouça e escreva do jeito que você ouviu, com letras do português", Math.ceil(e.phrases.length / 2) + " min"],
+        ["bulb", "Veja o que é", "Como soa, o que é em inglês, o que significa e por que soa assim", ""],
+        ["zap", "O que você ouviu?", "Escolha a frase e o significado só pelo som", Math.ceil(e.phrases.length / 3) + " min"],
+        ["mic", "Fale igual", "Repita 3 frases no ritmo do americano", "2 min"]
+      ];
+    }
     if (info.kind === "dialog") {
       const rows = [["headphones", "A conversa completa", e.lines.length + " falas, com tradução e áudio", "2 min"], ["mic", "Sua vez", "Você diz as suas " + e.mine.length + " falas em inglês", "5 min"], ["zap", "Monte as falas", "2 exercícios", "1 min"]];
       if (e.extra && e.extra.length) rows.push(["chat", "Outras frases úteis", plural(e.extra.length, "frase", "frases") + " para a mesma situação", "1 min"]);
@@ -1231,7 +1328,11 @@
     const info = P.info;
     const e = info.etapa;
     const acc = P.total ? P.correct + "/" + P.total : "—";
-    const title = "Etapa " + e.n + " · " + { wordset: "palavras concluídas", phrases: "frases concluídas", dialog: "conversa concluída", grammar: "lição concluída", drill: "treino concluído" }[info.kind];
+    const title = "Etapa " + e.n + " · " + { wordset: "palavras concluídas", phrases: "frases concluídas", dialog: "conversa concluída", grammar: "lição concluída", drill: "treino concluído", listen: "ouvido treinado" }[info.kind];
+    if (info.kind === "listen") {
+      const ear = P.hearN ? Math.round(P.hearSum / P.hearN) : 0;
+      return { title, lead: P.hearN ? "Seu ouvido chegou perto do som em " + ear + "% das frases que você escreveu. Repita amanhã: o ouvido acostuma rápido." : "Repita amanhã escrevendo o que ouvir: é o que treina o ouvido.", stats: [[e.phrases.length, "frases"], [acc, "pelo som"], [P.hearN ? ear + "%" : "—", "ouvido"]] };
+    }
     if (info.kind === "wordset") return { title, lead: S.isDone("f:" + e.id) ? "As palavras novas voltam em 10 e 30 minutos." : "Agora decore as " + e.phrases.length + " frases prontas desta etapa.", stats: [[e.idx.length, "palavras"], [acc, "acertos"], [S.counts().seen, "estudadas"]] };
     if (info.kind === "phrases") return { title, lead: "As frases voltam nos cards e na aba Revisar.", stats: [[e.phrases.length, "frases"], [acc, "acertos"], [S.pcounts().seen, "frases vistas"]] };
     if (info.kind === "dialog") return { title, lead: "Ensaie de novo amanhã: na segunda vez a conversa sai mais solta.", stats: [[e.mine.length, "falas suas"], [acc, "acertos"], [P.minutes, "min"]] };
@@ -1371,12 +1472,14 @@
     let actions;
     if (e.kind === "words") actions = btn("w:" + e.id, "Estudar as " + e.idx.length + " palavras") + btn("f:" + e.id, "Decorar as " + e.phrases.length + " frases", "btn-tinted");
     else if (e.kind === "phrases") actions = btn("f:" + e.id, "Decorar as " + e.phrases.length + " frases");
+    else if (e.kind === "listen") actions = btn("o:" + e.id, "Treinar o ouvido");
     else if (e.kind === "dialog") actions = btn("s:" + e.id, "Ensaiar a conversa") + '<button class="btn btn-tinted btn-large" data-action="play-dialog" data-eid="' + e.id + '">' + icon("headphones") + "Ouvir a conversa inteira</button>";
     else if (e.kind === "grammar") actions = btn("g:" + e.id, "Fazer a lição");
     else actions = btn("k:" + e.id, "Começar o treino");
     if (e.phrases || e.idx) actions += '<button class="btn btn-plain" data-action="deck" data-eid="' + e.id + '">' + icon("cards") + "Cards para memorizar</button>";
     const second = e.kind === "words" ? e.idx.length + " palavras e " + e.phrases.length + " frases."
       : e.kind === "phrases" ? e.phrases.length + " frases prontas."
+        : e.kind === "listen" ? e.phrases.length + " frases para ouvir."
         : e.kind === "dialog" ? "Uma conversa de " + e.lines.length + " falas."
           : e.kind === "grammar" ? dot(e.desc) : e.verbs.length + " verbos, 9 frases cada.";
     let html = ltHeader(esc(e.name) + ".", { eyebrow: "Etapa " + e.n + " · " + esc(part.name), second: esc(second), avatar: false }) +
@@ -1426,7 +1529,7 @@
       '<div class="controls"><button class="btn btn-capsule" data-action="speak" data-text="' + esc(p.en) + '" data-rate="0.6">Devagar</button>' +
       (SP.hasMic ? '<button class="btn btn-capsule" data-action="mic-text" data-text="' + esc(p.en) + '">' + icon("mic") + "Testar pronúncia</button>" : "") + "</div>" +
       '<div class="mic-result" id="mic-result" hidden></div>' +
-      soundBox(p.real, p.br) + swapsHtml(p.swaps) +
+      soundBox(p.real, p.br) + (p.why ? '<p class="subhead secondary why-line">' + icon("bulb", "icon-sm") + "<span>" + esc(p.why) + "</span></p>" : "") + swapsHtml(p.swaps) +
       '<div class="field-note"><label class="eyebrow" for="sheet-pnote">Sua anotação</label><textarea id="sheet-pnote" class="note-box" data-input="pnote" data-pid="' + pid + '" placeholder="Quando usar, uma variação, uma frase sua">' + esc(S.state.pnotes[pid] || "") + "</textarea></div>" +
       "</div>";
     const close = () => {
@@ -1606,7 +1709,85 @@
     return { html, meta: { title: "Dia " + (k + 1) } };
   }
 
-  const VIEWS = { semana: viewSemana, dia: viewDia, deck: viewDeck, intensivo: viewIntensivo, etapas: viewEtapas, etapa: viewEtapa, tobe: viewTobe, palavras: viewPalavras, revisar: viewRevisar, caderno: viewCaderno, metodo: viewMetodo, ajustes: viewAjustes };
+  /* ═══════════════════════ OUVIR · CONVERSAR · MAIS ═══════════════════════
+     O app gira em torno de ouvir e conversar como o americano fala. Vocabulário e gramática ficam em "Mais". */
+  function startBtn(id, label, cls) {
+    return '<button class="btn ' + (cls || "btn-filled") + ' btn-large" data-action="start" data-id="' + id + '" data-force="1">' + icon("play") + esc(label) + "</button>";
+  }
+  function viewOuvir() {
+    const listens = ETAPAS.filter((e) => e.kind === "listen");
+    const ear = listens.filter((e) => e.part === "ouvido");
+    const blocks = listens.filter((e) => e.part !== "ouvido");
+    const ids = listens.flatMap(phraseIds);
+    const pc = S.pcounts(ids);
+    const res = Object.values(S.state.resumes).filter((r) => (r.id.startsWith("o:") || r.id === "g:som") && etapaById[r.id.slice(2)] && !S.isDone(r.id)).sort((x, y) => (y.at || 0) - (x.at || 0))[0];
+    const som = etapaById.som;
+    const nextE = ear.concat(blocks).find((e) => !etapaDone(e));
+    let cta = "";
+    if (res) cta = startBtn(res.id, "Continuar: " + nodeInfo(res.id).title);
+    else if (som && !etapaDone(som)) cta = startBtn("g:som", "Começar: as regras do som americano");
+    else if (nextE) cta = startBtn("o:" + nextE.id, "Treinar: " + nextE.name);
+    const html =
+      ltHeader("Ouvir.", { eyebrow: "Escuta e fonética", second: "Entenda o que o americano fala." }) +
+      '<div class="card dash"><p class="subhead secondary">Primeiro o ouvido, depois a gramática. Ouça sem ler, escreva do jeito que ouviu, veja o que é em inglês e o que significa. Depois fale igual.</p>' +
+      '<div class="dash-bar"><span class="caption secondary">Frases</span><div class="progress good" role="img" aria-label="' + pc.seen + " de " + ids.length + ' frases ouvidas"><span style="width:' + Math.round((pc.seen / Math.max(1, ids.length)) * 100) + '%"></span></div></div>' +
+      '<p class="footnote secondary">' + pc.seen + " de " + ids.length + " frases ouvidas · " + pc.learned + " já fixadas nos cards.</p>" + cta + "</div>" +
+      section("Escreva o que você ouviu",
+        '<div class="card decode-card"><label class="sr-only" for="decode-box">O que você ouviu</label>' +
+        '<input class="note-box hear-box" id="decode-box" data-input="decode" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Ex.: uarzirevtudumi">' +
+        '<div id="decode-results"></div></div>',
+        "Ouviu algo numa série ou na rua? Escreva com letras do português, do jeito que soou. O app procura a frase, mostra o que é em inglês e o que significa.") +
+      section("Comece aqui", list([cell({ action: "start", attrs: 'data-id="g:som" data-force="1"', icon: "bulb", title: "As regras do som americano", sub: "Gonna, o T que vira R, o you que vira iâ e as palavras que se juntam", value: som && etapaDone(som) ? '<span class="tag good">Feita</span>' : "", chevron: true })], "icons")) +
+      '<div class="phase-divider"><span>Treino de ouvido</span></div>' +
+      '<div class="etapa-grid">' + ear.map(etapaCard).join("") + "</div>" +
+      '<div class="phase-divider"><span>Frases do dia a dia</span></div>' +
+      '<div class="etapa-grid">' + blocks.map(etapaCard).join("") + "</div>" +
+      list([
+        cell({ href: "#conversar", icon: "chat", title: "Conversar", sub: "Ouça a outra pessoa e responda em situações reais", chevron: true }),
+        cell({ href: "#revisar", icon: "cards", title: "Cards", sub: "Revise as frases que você ouviu, como no Anki", chevron: true })
+      ], "icons");
+    return { html, meta: { title: "Ouvir" } };
+  }
+
+  function viewConversar() {
+    const ds = ETAPAS.filter((e) => e.kind === "dialog");
+    const done = ds.filter(etapaDone).length;
+    const res = Object.values(S.state.resumes).filter((r) => r.id.startsWith("s:") && etapaById[r.id.slice(2)] && !S.isDone(r.id)).sort((x, y) => (y.at || 0) - (x.at || 0))[0];
+    const next = ds.find((e) => !etapaDone(e));
+    const cta = res ? startBtn(res.id, "Continuar: " + nodeInfo(res.id).title) : next ? startBtn("s:" + next.id, "Ensaiar: " + next.name) : "";
+    const html =
+      ltHeader("Conversar.", { eyebrow: "Situações reais", second: "Ouça e responda como o americano." }) +
+      '<div class="card dash"><p class="subhead secondary">Primeiro você ouve a conversa inteira, no ritmo real. Depois a outra pessoa fala e você responde em inglês, em voz alta. A tradução e o som de cada fala ficam na tela.</p>' +
+      '<div class="dash-bar"><span class="caption secondary">Conversas</span><div class="progress good"><span style="width:' + Math.round((done / Math.max(1, ds.length)) * 100) + '%"></span></div></div>' +
+      '<p class="footnote secondary">' + done + " de " + ds.length + " conversas ensaiadas.</p>" + cta + "</div>" +
+      '<div class="etapa-grid">' + ds.map(etapaCard).join("") + "</div>";
+    return { html, meta: { title: "Conversar" } };
+  }
+
+  function viewMais() {
+    const c = S.counts();
+    const core = S.coreCounts();
+    const html =
+      ltHeader("Mais.", { eyebrow: "Para depois", second: "Vocabulário e gramática." }) +
+      '<p class="subhead secondary">O foco agora é ouvir e conversar. Aqui ficam as outras trilhas, com todo o seu progresso guardado.</p>' +
+      section("Vocabulário", list([
+        cell({ href: "#semana", icon: "calendar", title: "Plano de 7 dias", sub: "As palavras em ordem de frequência (Lei de Zipf)", chevron: true }),
+        cell({ href: "#intensivo", icon: "route", title: "Intensivo de 8 horas", sub: "As 500 palavras essenciais · " + core.seen + " de 500 estudadas", chevron: true }),
+        cell({ href: "#etapas", icon: "grid", title: "Etapas por área", sub: "Números, comida, aeroporto, negócios, startups e mais", chevron: true }),
+        cell({ href: "#palavras", icon: "textformat", title: "Todas as palavras", sub: c.seen + " de " + S.N + " estudadas", chevron: true })
+      ], "icons")) +
+      section("Gramática", list([
+        cell({ href: "#tobe", icon: "layers", title: "Verbo to be", sub: S.tobeCount() + " de " + TOBE.length + " lições", chevron: true }),
+        cell({ href: "#etapa-d1", icon: "book", title: "Do, does e did", sub: "Afirmar, negar e perguntar no presente e no passado", chevron: true })
+      ], "icons")) +
+      section("App", list([
+        cell({ href: "#metodo", icon: "bulb", title: "Método e pesquisa", chevron: true }),
+        cell({ href: "#ajustes", icon: "gear", title: "Ajustes", sub: "Nuvem, voz, tema e backup", chevron: true })
+      ], "icons"));
+    return { html, meta: { title: "Mais" } };
+  }
+
+  const VIEWS = { ouvir: viewOuvir, conversar: viewConversar, mais: viewMais, semana: viewSemana, dia: viewDia, deck: viewDeck, intensivo: viewIntensivo, etapas: viewEtapas, etapa: viewEtapa, tobe: viewTobe, palavras: viewPalavras, revisar: viewRevisar, caderno: viewCaderno, metodo: viewMetodo, ajustes: viewAjustes };
 
   /* ═══════════════════════ PAUSA ═══════════════════════ */
   let breakTimer = null;
@@ -2014,6 +2195,20 @@
       drawChat(step);
       talkFoot(step);
       if (!step.msgs.length && !step.busy) aiTurn(step);
+    },
+
+    hear(step, el) {
+      const p = phraseById(step.pid);
+      S.pintroduce(step.pid);
+      step.answered = false;
+      el.innerHTML = '<div class="step-head">' + eyebrow("Ouça · frase " + step.n + " de " + step.of) +
+        '<h1 class="title2">Escreva do jeito que você ouviu.</h1><p class="body secondary">Sem ler antes. Pode usar letras do português. Ouça quantas vezes quiser.</p></div>' +
+        '<div class="hear-card"><button class="hear-play" data-action="speak" data-text="' + esc(p.real || p.en) + '" aria-label="Ouvir de novo">' + icon("play") + "</button>" +
+        '<div class="controls"><button class="btn btn-capsule" data-action="speak" data-text="' + esc(p.real || p.en) + '" data-rate="0.6">Devagar</button></div>' +
+        '<label class="sr-only" for="hear-box">O que você ouviu</label><input class="note-box hear-box" id="hear-box" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Ex.: uárâzit mín"></div>' +
+        '<div id="hear-answer"></div>';
+      setFoot(primary("Ver o que é", { action: "hear-reveal" }));
+      setTimeout(() => { if (P && P.steps[P.i] === step) SP.speak(p.real || p.en); }, 350);
     },
 
     phrase(step, el) {
@@ -2462,6 +2657,31 @@
       const words = el.dataset.text.split(" ");
       toast("Começa com: “" + words.slice(0, Math.max(1, Math.ceil(words.length / 3))).join(" ") + "…”");
     },
+    "hear-reveal"() {
+      const step = P && P.steps[P.i];
+      if (!step || step.type !== "hear" || step.answered) return;
+      step.answered = true;
+      const p = phraseById(step.pid);
+      const box = $("#hear-box");
+      const typed = box ? box.value.trim() : "";
+      if (box) box.disabled = true;
+      let fb = "";
+      if (typed) {
+        const score = Math.round(Math.max(soundMatch(typed, p.br), soundMatch(typed, p.real), soundMatch(typed, p.en)) * 100);
+        P.hearSum = (P.hearSum || 0) + score;
+        P.hearN = (P.hearN || 0) + 1;
+        fb = '<p class="hear-you">Você escreveu: <b>' + esc(typed) + "</b> · " + (score >= 75 ? "seu ouvido pegou o som!" : score >= 50 ? "chegou perto (" + score + "%)." : "o som é outro (" + score + "%). Ouça de novo comparando.") + "</p>";
+      }
+      $("#hear-answer").innerHTML = fb +
+        '<div class="hear-reveal"><p class="eyebrow">Como soa</p><p class="sound-br">' + esc(p.br) + "</p>" +
+        '<p class="eyebrow">Em inglês</p><p class="hear-en" lang="en">' + esc(p.en) + '</p><p class="sound-real" lang="en">' + esc(p.real) + "</p>" +
+        '<p class="eyebrow">Significa</p><p class="headline">' + esc(p.pt) + "</p>" +
+        (p.why ? '<p class="subhead secondary why-line">' + icon("bulb", "icon-sm") + "<span>" + esc(p.why) + "</span></p>" : "") +
+        '<div class="controls"><button class="btn btn-filled btn-capsule" data-action="speak" data-text="' + esc(p.real || p.en) + '">' + icon("play") + "Natural</button>" +
+        '<button class="btn btn-capsule" data-action="speak" data-text="' + esc(p.real || p.en) + '" data-rate="0.6">Devagar</button></div></div>';
+      SP.speak(p.real || p.en);
+      setFoot(primary("Continuar"));
+    },
     "reveal-sentence"() {
       const step = P.steps[P.i];
       if (step.pid) S.pintroduce(step.pid);
@@ -2558,6 +2778,7 @@
     const kind = el.dataset && el.dataset.input;
     if (!kind) return;
     if (kind === "wsearch") { refreshWordGroups(); return; }
+    if (kind === "decode") { const box = $("#decode-results"); if (box) box.innerHTML = decodeHtml(el.value); return; }
     if (kind === "note") {
       const v = el.value.trim();
       if (v) S.state.notes[+el.dataset.i] = el.value; else delete S.state.notes[+el.dataset.i];
@@ -2624,6 +2845,7 @@
     if (e.key === "Escape") { e.preventDefault(); requestClose(); return; }
     const step = P.steps[P.i];
     if (tag === "textarea" && step.type === "talk" && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendTalk(); return; }
+    if (e.key === "Enter" && e.target.id === "hear-box") { e.preventDefault(); ACTIONS["hear-reveal"](); return; }
     if (tag === "textarea" || tag === "input" || tag === "select") return;
     if (/^[1-4]$/.test(e.key)) {
       const sel = step.type === "choice" && !step.answered ? "#player .opt" : step.type === "card" || step.type === "pcard" ? "#player .grade" : null;

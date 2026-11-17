@@ -1,10 +1,22 @@
 # Intensivo 1000
 
-Um app web para aprender **1000 palavras do inglês**:
+Um app web para **entender o inglês falado e conversar como o americano fala**. Primeiro o ouvido, depois a gramática.
 
-- **As 500 mais usadas e o verbo to be completo, em 8 horas.** É o intensivo de um dia. O app guia cada passo: quais palavras estudar, quando revisar, quando fazer uma lição de gramática, quando falar e quando fazer pausa.
-- **Mais 500 palavras por área, em etapas.** Cada etapa é um card, com frases prontas do dia a dia, o método do, does e did e conversas para ensaiar.
-- **Plano de 7 dias (aba Semana, a tela inicial).** As palavras vêm das mais usadas para as menos usadas, seguindo a Lei de Zipf. Cada dia mistura palavras, blocos prontos com o som real da fala americana, gramática e uma situação.
+A tela inicial é **Ouvir**:
+- **Decodificador:** você escreve o que ouviu com letras do português, por exemplo "uarzirevtudumi", e o app acha a frase ("What does that have to do with me?") e o significado ("O que isso tem a ver comigo?").
+- **Treino de ouvido:** 11 etapas, cada uma sobre um jeito de o americano juntar e engolir os sons (o you que vira "iâ", o T que vira R, gonna e wanna, "what does it" → "uárâzit", can x can't...).
+- **Frases do dia a dia:** os 118 blocos prontos, também treinados pelo ouvido.
+
+Em cada frase, o treino segue estes passos:
+1. **Ouvir sem ler.**
+2. **Escrever como ouviu.** O app compara o que você escreveu pelo som.
+3. **Ver o que é:** como soa, a frase em inglês, o que significa e por que soa assim.
+4. **Escolher a frase e o significado só pelo áudio.**
+5. **Falar igual.**
+
+As outras partes do app ficam em **Mais**, com todo o progresso guardado, para depois:
+- as 1000 palavras (o intensivo de 8 horas com as 500 essenciais, as etapas por área e o plano de 7 dias pela Lei de Zipf);
+- a gramática (verbo to be e do, does e did).
 
 ## A semana e a Lei de Zipf
 
@@ -177,13 +189,21 @@ O progresso antigo foi convertido sozinho:
 
 Em todas as telas, o botão **Voltar** no topo leva à tela anterior.
 
-- **Semana (tela inicial):** o dia de hoje com as tarefas, o gráfico da Lei de Zipf com a sua posição e os 7 dias em cards. Cada dia abre uma página com as suas tarefas.
-- **Intensivo:** painel do dia com as 500 essenciais (estudadas, fixadas, tempo, ritmo e próxima ação), aviso de pausa e trilha com as 20 rodadas e as 4 provas. Na barra de cima, a nuvem mostra se o progresso está salvo.
-- **Etapas:** os 55 cards por parte, com o progresso de palavras, frases e etapas. Cada etapa abre uma página com os botões de estudo, as palavras, as frases ou a conversa, e a lista para copiar.
-- **To be:** a trilha de 11 lições e a cola do verbo to be. Fica no card "Verbo to be" da aba Etapas e no menu lateral.
-- **Palavras:** as 1000 palavras com filtro (novas, em treino, fixadas) e busca. Tocar numa palavra abre áudio, exemplo, teste de pronúncia e anotação.
-- **Cards:** os baralhos no estilo do Anki, com novas, aprendendo e revisar; o estudo com os 4 botões; a maturidade das cartas e o estudo extra.
-- **Caderno:** anotações livres e as notas de cada palavra e de cada frase, com dicas de associação.
+A barra de baixo tem cinco abas:
+
+- **Ouvir (tela inicial):** o decodificador, a lição "As regras do som americano", as 11 etapas do treino de ouvido e as 10 etapas de frases do dia a dia.
+- **Conversar:** as 15 situações (balada, academia, restaurante, aeroporto, reunião...). Você ouve a conversa inteira e depois responde a outra pessoa em voz alta.
+- **Cards:** os baralhos no estilo do Anki, com novas, aprendendo e revisar, os 4 botões, a maturidade das cartas e o estudo extra. Os baralhos de escuta vêm primeiro.
+- **Caderno:** anotações livres e as notas de cada palavra e de cada frase.
+- **Mais:** plano de 7 dias, intensivo de 8 horas, etapas por área, todas as palavras, verbo to be, do/does/did, método e ajustes.
+
+As telas que ficam dentro de Mais:
+
+- **Semana:** o plano de 7 dias com o gráfico da Lei de Zipf.
+- **Intensivo:** painel do dia com as 500 essenciais e a trilha de 20 rodadas e 4 provas.
+- **Etapas:** todas as etapas em cards, com a lista para copiar no caderno.
+- **To be:** a trilha de 11 lições e a cola do verbo to be.
+- **Palavras:** as 1000 palavras com filtro e busca.
 - **Método:** as técnicas, o plano das 8 horas e o que esperar de forma realista.
 - **Ajustes:** sincronização, "Já estudei até a palavra nº", nome, voz, tema, backup, reiniciar o cronômetro e apagar tudo.
 
@@ -216,6 +236,7 @@ js/areas.js           as etapas por área: as outras 500 palavras e as frases pr
 js/dodid.js           lições e treinos de verbos com do, does e did
 js/situacoes.js       as situações do cotidiano em diálogo
 js/blocos.js          os blocos prontos com o som real e a lição de fala encadeada
+js/ouvido.js          o treino de ouvido: frases por fenômeno da fala, com o som e o porquê
 js/tobe.js            a trilha do verbo to be: explicações, tabelas, exemplos e exercícios
 js/store.js           progresso, revisão espaçada em minutos, cronômetro e posição das etapas
 js/sync.js            sincronização com o Supabase (site) ou com a conta do Claude (link do Claude)
