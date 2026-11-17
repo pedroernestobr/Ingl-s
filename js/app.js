@@ -165,13 +165,29 @@
       "</nav></div>";
   }
 
+  /* Telas visitadas nesta sessão (a última é a atual). Sustenta o botão Voltar de cada tela. */
+  const VIEW_LABEL = { intensivo: "Intensivo", tobe: "To be", palavras: "Palavras", revisar: "Revisar", caderno: "Caderno", metodo: "Método", ajustes: "Ajustes" };
+  let trail = [];
+  function trackView(v) {
+    const i = trail.indexOf(v);
+    if (i >= 0) trail = trail.slice(0, i + 1);
+    else trail.push(v);
+    if (trail.length > 30) trail = trail.slice(-30);
+  }
+  function backFor(v) {
+    if (v === "intensivo") return null;
+    const prev = trail.length > 1 ? trail[trail.length - 2] : "intensivo";
+    return ["#" + prev, VIEW_LABEL[prev]];
+  }
+
   function updateChrome(r, meta) {
     $$("[data-nav]").forEach((a) => { if (a.dataset.nav === r.view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     const due = S.dueIds().length;
     $$('[data-badge="revisar"]').forEach((b) => { b.hidden = due === 0; b.textContent = due > 99 ? "99+" : due; });
     $("#navbar").hidden = !!meta.hideNav;
     $("#nav-title").textContent = meta.title;
-    $("#nav-left").innerHTML = meta.back ? '<a class="back-btn" href="' + meta.back[0] + '">' + icon("chevL") + esc(meta.back[1]) + "</a>" : "";
+    const back = meta.back || backFor(r.view);
+    $("#nav-left").innerHTML = back ? '<a class="back-btn" href="' + back[0] + '" aria-label="Voltar para ' + esc(back[1]) + '">' + icon("chevL") + esc(back[1]) + "</a>" : "";
     const c = S.counts();
     const foot = $("#side-foot");
     if (foot) foot.innerHTML = c.seen + " de " + S.N + " palavras estudadas · " + c.learned + " fixadas.<br>" + esc(syncText()) + ".";
@@ -195,6 +211,7 @@
     if (!$("#view")) renderShell();
     const r = route();
     const out = VIEWS[r.view](r);
+    trackView(r.view);
     closePopover();
     $("#view").innerHTML = out.html;
     updateChrome(r, out.meta);
@@ -758,7 +775,8 @@
     el.id = "break";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-label", "Pausa");
-    el.innerHTML = '<div class="player-body"><div class="player-inner break-inner">' +
+    el.innerHTML = '<div class="player-head"><button class="close-btn" data-action="end-break" aria-label="Voltar a estudar">' + icon("x") + "</button></div>" +
+      '<div class="player-body"><div class="player-inner break-inner">' +
       '<p class="eyebrow center">Pausa</p><p class="break-clock" id="break-clock">10:00</p>' +
       '<h1 class="large-title two-tone center">Descanse.<span class="second">A memória trabalha agora.</span></h1>' +
       list([
