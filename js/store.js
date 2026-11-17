@@ -5,9 +5,10 @@
 
   const KEY = "intensivo500:v1";
   const W = window.WORDS;
-  const N = W.length;            // 500
+  const N = W.length;            // 1000: as 500 essenciais + 500 das etapas por área
+  const CORE = window.CORE_N || N; // 500 essenciais: o intensivo de 8 horas
   const RS = 25;                 // palavras por rodada
-  const ROUNDS = N / RS;         // 20
+  const ROUNDS = CORE / RS;      // 20
   const PER_BLOCK = 5;           // rodadas por bloco
   const BLOCKS = ROUNDS / PER_BLOCK; // 4
   const SESSION_MIN = 480;       // 8 horas
@@ -31,6 +32,9 @@
       notes: {},     // índice → anotação
       pad: "",       // caderno livre
       nodes: {},     // "r1".."r20", "c1".."c4" → { at, correct, total, min }
+      etapas: {},    // etapas por área: "w:comida", "f:comida", "s:balada", "g:d1", "k:treino1" → { at, correct, total, min }
+      pcards: {},    // frases prontas: "comida.3" → { box, due, ok, bad, seen, learnedAt }
+      pnotes: {},    // anotações por frase
       tobe: {},      // lições do verbo to be: "t1".."t11" → { at, correct, total, min }
       resumes: {},   // rodadas e lições em andamento: id → posição, para continuar de onde parou
       talks: 0,      // conversas feitas
@@ -45,6 +49,9 @@
       settings: Object.assign(base.settings, data.settings || {}),
       session: Object.assign(base.session, data.session || {}),
       tobe: data.tobe || {},
+      etapas: data.etapas || {},
+      pcards: data.pcards || {},
+      pnotes: data.pnotes || {},
       resumes: data.resumes || (data.resume ? { [data.resume.id]: data.resume } : {})
     });
   }
@@ -100,7 +107,7 @@
     }
     return out;
   }
-  function isDone(id) { return id[0] === "t" ? !!state.tobe[id] : !!state.nodes[id]; }
+  function isDone(id) { return id.includes(":") ? !!state.etapas[id] : id[0] === "t" ? !!state.tobe[id] : !!state.nodes[id]; }
   function nextId() { return nodeIds().find((id) => !isDone(id)) || null; }
   const tobeIds = () => window.TOBE.map((l) => l.id);
   function nextTobe() { return tobeIds().find((id) => !state.tobe[id]) || null; }
@@ -109,7 +116,7 @@
   /* Registra progresso feito antes (ou em outro aparelho sem sincronização): as palavras de 1 até n
      entram como estudadas e voltam para revisão agora; as rodadas completas ficam marcadas. */
   function markStudiedUpTo(n) {
-    n = Math.max(0, Math.min(N, Math.floor(n)));
+    n = Math.max(0, Math.min(CORE, Math.floor(n)));
     const t = now();
     for (let i = 0; i < n; i++) {
       if (!state.cards[i]) state.cards[i] = { box: 2, due: t, ok: 1, bad: 0, seen: t, learnedAt: null };
@@ -190,10 +197,58 @@
     if (!c) return "new";
     return c.box >= LEARNED_BOX ? "learned" : "training";
   }
-  function counts() {
+  /* Contagens de todas as palavras ou só das posições pedidas (ex.: as 500 essenciais). */
+  function counts(idxs) {
     let seen = 0, learned = 0, fixed = 0;
-    Object.values(state.cards).forEach((c) => { seen += 1; if (c.box >= LEARNED_BOX) learned += 1; if (c.box >= 5) fixed += 1; });
-    return { seen, learned, training: seen - learned, fresh: N - seen, fixed };
+    const list = idxs ? idxs.map((i) => state.cards[i]).filter(Boolean) : Object.values(state.cards);
+    list.forEach((c) => { seen += 1; if (c.box >= LEARNED_BOX) learned += 1; if (c.box >= 5) fixed += 1; });
+    return { seen, learned, training: seen - learned, fresh: (idxs ? idxs.length : N) - seen, fixed };
+  }
+  const coreIdx = Array.from({ length: CORE }, (_, i) => i);
+  function coreCounts() { return counts(coreIdx); }
+
+  /* ───────── Frases prontas: a mesma repetição espaçada, com chave "etapa.n" ───────── */
+  function pcard(id) { return state.pcards[id] || null; }
+  function pintroduce(id) {
+    if (!state.pcards[id]) state.pcards[id] = { box: 1, due: now() + INTERVALS[1] * MIN, ok: 0, bad: 0, seen: now(), learnedAt: null };
+  }
+  function pquiz(id, ok) {
+    pintroduce(id);
+    const c = state.pcards[id];
+    if (ok) { c.ok += 1; if (c.box < 2) setBox(c, 2); }
+    else { c.bad += 1; setBox(c, 1); }
+  }
+  function pgrade(id, g) {
+    pintroduce(id);
+    const c = state.pcards[id];
+    if (g === "again") c.bad += 1; else c.ok += 1;
+    if (g === "hard") { c.due = now() + Math.max(1, Math.round(INTERVALS[c.box] / 2)) * MIN; return; }
+    setBox(c, nextBox(c, g));
+  }
+  function pintervalLabel(id, g) {
+    const c = pcard(id) || { box: 1 };
+    const m = g === "hard" ? Math.max(1, Math.round(INTERVALS[c.box] / 2)) : INTERVALS[nextBox(c, g)];
+    if (m >= 1440) return "amanhã";
+    if (m >= 60) return (m / 60) + " h";
+    return m + " min";
+  }
+  function pstatus(id) {
+    const c = pcard(id);
+    if (!c) return "new";
+    return c.box >= LEARNED_BOX ? "learned" : "training";
+  }
+  function pdueIds(limit) {
+    const t = now();
+    const list = Object.keys(state.pcards)
+      .filter((k) => state.pcards[k].due <= t && state.pcards[k].box < 5)
+      .sort((a, b) => state.pcards[a].due - state.pcards[b].due);
+    return typeof limit === "number" ? list.slice(0, limit) : list;
+  }
+  function pcounts(ids) {
+    let seen = 0, learned = 0;
+    const list = ids ? ids.map((k) => state.pcards[k]).filter(Boolean) : Object.values(state.pcards);
+    list.forEach((c) => { seen += 1; if (c.box >= LEARNED_BOX) learned += 1; });
+    return { seen, learned };
   }
   function boxCounts() {
     const out = [0, 0, 0, 0, 0];
@@ -225,7 +280,7 @@
     save();
   }
   /* Quantas palavras aprendidas seria o ritmo ideal neste momento das 8 horas. */
-  function paceTarget() { return Math.min(N, Math.round((Math.min(elapsedMin(), SESSION_MIN) / SESSION_MIN) * N)); }
+  function paceTarget() { return Math.min(CORE, Math.round((Math.min(elapsedMin(), SESSION_MIN) / SESSION_MIN) * CORE)); }
   /* Série de aprendizado para o gráfico: [minuto, total aprendido]. */
   function learnedSeries() {
     const s = state.session.startedAt;
@@ -253,7 +308,8 @@
     get state() { return state; },
     get storageOk() { return storageOk; },
     save, persist, snapshot, replace, reset, exportJSON, importJSON, markStudiedUpTo, nextTobe, tobeCount,
-    N, RS, ROUNDS, PER_BLOCK, BLOCKS, SESSION_MIN, BREAK_EVERY, BREAK_MIN, INTERVALS, LEARNED_BOX,
+    N, CORE, RS, ROUNDS, PER_BLOCK, BLOCKS, SESSION_MIN, BREAK_EVERY, BREAK_MIN, INTERVALS, LEARNED_BOX,
+    coreCounts, pcard, pintroduce, pquiz, pgrade, pintervalLabel, pstatus, pdueIds, pcounts,
     word, roundRange, blockOfRound, blockRange, nodeIds, isDone, nextId,
     card, introduce, quiz, grade, intervalLabel, dueIds, leftIds, nextDueIn, status, counts, boxCounts, accuracy,
     startSession, elapsedMin, sinceBreakMin, breakDue, logBreak, paceTarget, learnedSeries

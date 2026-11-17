@@ -1,12 +1,15 @@
 /* Cache simples para o app funcionar offline depois da primeira visita.
    Ao publicar uma versão nova, aumente o número de VERSION. */
-const VERSION = "intensivo500-v4";
+const VERSION = "intensivo500-v5";
 const ASSETS = [
   "./",
   "./index.html",
   "./css/styles.css",
   "./js/config.js",
   "./js/words.js",
+  "./js/areas.js",
+  "./js/dodid.js",
+  "./js/situacoes.js",
   "./js/tobe.js",
   "./js/sync.js",
   "./js/store.js",

@@ -151,9 +151,15 @@
     }
   }
 
+  /* Espera 2,5 s sem mudanças para enviar, mas nunca adia mais de 10 s: estudando sem parar, o progresso
+     continua indo para a nuvem. */
+  let waitingSince = 0;
   function schedule(ms) {
+    const t = Date.now();
+    if (timer && waitingSince && t - waitingSince > 10000) return;
     clearTimeout(timer);
-    timer = setTimeout(push, ms == null ? 2500 : ms);
+    if (!waitingSince) waitingSince = t;
+    timer = setTimeout(() => { timer = null; waitingSince = 0; push(); }, ms == null ? 2500 : ms);
   }
 
   async function init() {
@@ -190,7 +196,9 @@
   }
 
   window.addEventListener("online", () => schedule(500));
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && timer) { clearTimeout(timer); push(); } });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && timer) { clearTimeout(timer); timer = null; waitingSince = 0; push(); }
+  });
 
   window.Sync = {
     get key() { return key; },

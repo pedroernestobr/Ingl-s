@@ -1,7 +1,7 @@
 {
-  "name": "Intensivo 500",
-  "short_name": "Intensivo 500",
-  "description": "As 500 palavras mais usadas do inglês em 8 horas.",
+  "name": "Intensivo 1000",
+  "short_name": "Intensivo 1000",
+  "description": "1000 palavras do inglês: as 500 essenciais em 8 horas e mais 500 por área, com frases e situações.",
   "lang": "pt-BR",
   "start_url": "./#intensivo",
   "scope": "./",

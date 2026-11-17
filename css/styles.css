@@ -288,7 +288,8 @@ a:hover { text-decoration: none; }
   bottom: 0;
   z-index: 25;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   background: var(--bar);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
@@ -765,6 +766,44 @@ textarea.note-box { min-height: 72px; }
 
 .toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 12px); transform: translateX(-50%); z-index: 90; max-width: calc(100vw - 32px); padding: 12px 22px; border-radius: var(--r-pill); background: var(--bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); box-shadow: var(--shadow-deep); font-size: 15px; font-weight: 500; text-align: center; animation: drop .35s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes drop { from { transform: translate(-50%, -16px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+/* ───────── Etapas em cards ───────── */
+.app-icon { font-size: 30px; }
+.part-desc { margin-top: -10px; padding: 0 8px; }
+.etapa-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 620px) { .etapa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.etapa-card { display: flex; align-items: center; gap: 14px; padding: 16px; min-width: 0; background: var(--cell); border-radius: var(--r-card); box-shadow: var(--shadow-soft); color: var(--label); transition: transform .15s ease, box-shadow .15s ease; }
+@media (hover: hover) { .etapa-card:hover { box-shadow: var(--shadow-medium); } }
+.etapa-card:active { transform: scale(.985); }
+.etapa-icon { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; flex: none; background: var(--c, var(--phase-1)); color: #ffffff; }
+.etapa-icon .icon { width: 23px; height: 23px; stroke-width: 1.8; }
+.etapa-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.etapa-num { font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--label-2); }
+.etapa-title { font-family: var(--font-display); font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.012em; overflow-wrap: anywhere; }
+.etapa-sub { font-size: 14px; line-height: 19px; color: var(--label-2); }
+.etapa-body .progress { flex: none; margin-top: 6px; }
+.etapa-card.done .etapa-num, .etapa-check { color: var(--blue); }
+.etapa-check { flex: none; display: grid; }
+.etapa-check .icon { width: 24px; height: 24px; }
+
+.phrase-en { display: flex; flex-direction: column; gap: 6px; font-family: var(--font-display); font-size: clamp(24px, 6.4vw, 30px); line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.phrase-en .word-pt { font-size: 19px; line-height: 26px; font-weight: 500; letter-spacing: -0.01em; }
+.say-card { background: var(--cell); border-radius: var(--r-card); padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--shadow-soft); }
+.icon-btn { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; color: var(--link); background: var(--fill-3); }
+.icon-btn .icon { width: 17px; height: 17px; }
+
+.dialog .bubble { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: start; max-width: 92%; }
+.dialog .bubble p { grid-column: 1; }
+.dialog .bubble .speak { grid-column: 2; grid-row: 1 / span 3; width: 32px; height: 32px; }
+.dialog .who { font-size: 11px; line-height: 15px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; opacity: .7; }
+.dialog .bubble .tr { font-size: 14px; line-height: 20px; color: var(--label-2); }
+.dialog .bubble.me .tr { color: rgba(255, 255, 255, .85); }
+.dialog .bubble.me .speak { color: #ffffff; background: rgba(255, 255, 255, .18); }
+.dialog .bubble.speaking { box-shadow: 0 0 0 3px var(--blue-tint), var(--shadow-medium); }
+
+.copy-card { padding: 16px 18px; }
+.copy-text { margin: 0; max-height: 340px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/21px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif; color: var(--label); }
+.copy-btn { align-self: flex-start; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

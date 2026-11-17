@@ -1,6 +1,9 @@
-# Intensivo 500
+# Intensivo 1000
 
-Um app web para aprender **as 500 palavras mais usadas do inglês e o verbo to be completo em 8 horas**, num único dia de estudo intensivo. Ele guia cada passo: quais palavras estudar, quando revisar, quando fazer uma lição de gramática, quando falar e quando fazer pausa.
+Um app web para aprender **1000 palavras do inglês**:
+
+- **As 500 mais usadas e o verbo to be completo, em 8 horas.** É o intensivo de um dia. O app guia cada passo: quais palavras estudar, quando revisar, quando fazer uma lição de gramática, quando falar e quando fazer pausa.
+- **Mais 500 palavras por área, em etapas.** Cada etapa é um card, com frases prontas do dia a dia, o método do, does e did e conversas para ensaiar.
 
 Não precisa de cadastro nem instalação. Funciona no celular, pode ser instalado na tela inicial e continua funcionando offline depois da primeira visita.
 
@@ -44,7 +47,31 @@ O cronômetro de 8 horas começa quando você toca em **Começar o intensivo**. 
 
 Cada lição tem explicação em português com tabela, exemplos com áudio, 8 exercícios (completar, escolher e montar a frase), shadowing, frases para falar em inglês e, quando disponível, conversa com IA focada no to be. A aba **To be** também tem uma "cola" com todas as formas.
 
-## As 10 técnicas
+## As etapas: mais 500 palavras, frases e situações
+
+A aba **Etapas** mostra 55 cards em 8 partes. Dá para fazer em qualquer ordem.
+
+| Parte | Etapas |
+|---|---|
+| O básico | Números · Cores · Frutas · Dias, meses e horas |
+| Estruturas básicas · Do, does e did | Frases-modelo · Palavras de ligação · 6 lições (do, does, perguntas com do, did, perguntas no passado e revisão) · 4 treinos de verbos |
+| Frases do dia a dia | Cumprimentos · Conversa rápida · Pedir, agradecer e se desculpar · Quando você não entende · Opinião · Planos e convites · Reações · Frases da rotina |
+| Situações do cotidiano | Balada · Academia · Restaurante · Cafeteria · Check-in no aeroporto · Imigração · Hotel · Uber · Loja de roupas · Farmácia · Primeiro encontro · Pedindo direções · Reunião de trabalho · Pitch para investidor · Entrevista de emprego |
+| Comida e compras | Comida e restaurante · Compras · Roupas |
+| Viagem | Aeroporto · Hotel · Transporte e direções · Emergências |
+| Pessoas e casa | Relacionamentos · Família · Sentimentos · Corpo e saúde · Casa e rotina |
+| Trabalho e negócios | Negócios · Startups · Escritório e e-mails · Dinheiro e banco |
+
+O que cada tipo de etapa tem:
+
+- **Palavras de uma área:** 25 palavras com exemplo e 10 a 12 frases prontas. Palavras que já estão nas 500 essenciais (one, red, fruit) usam o mesmo progresso.
+- **Frases:** cada frase tem áudio, versão lenta, teste de pronúncia e anotação. Depois vêm exercícios (escolher e montar a frase) e frases para falar em inglês.
+- **Situação:** a conversa completa com tradução e o botão "Ouvir a conversa inteira". No ensaio, você diz as suas falas em inglês depois de ouvir a outra pessoa. Com a IA disponível, ela faz o outro papel.
+- **Do, does e did:** lições no formato do to be. Nos treinos, cada verbo passa por 9 frases: eu, você e ela, afirmando, negando e perguntando, no presente e no passado.
+
+Toda etapa tem **cards para memorizar** (repetição espaçada para palavras e frases) e uma **lista para anotar no caderno**, pronta para copiar. As frases vencidas também aparecem em **Revisar**, e as notas de frases aparecem no **Caderno**.
+
+## As 13 técnicas
 
 | Técnica | Como aparece no app |
 |---|---|
@@ -58,14 +85,20 @@ Cada lição tem explicação em português com tabela, exemplos com áudio, 8 e
 | Tradução reversa e conversa | Dizer frases em inglês e conversar com a IA |
 | Associação e anotação | Campo de anotação em cada palavra e um Caderno |
 | Pausas e sono | Pausa de 10 min a cada 50 e revisão no dia seguinte |
+| Frases prontas | Blocos inteiros para decorar, por área e do dia a dia |
+| Do, does e did | Um verbo, nove frases: afirmar, negar e perguntar no presente e no passado |
+| Ensaio de situações | Conversas da balada, do restaurante, da reunião e outras para ensaiar |
 
 ## Telas
 
-- **Intensivo:** painel do dia (estudadas, fixadas, tempo, ritmo e próxima ação), aviso de pausa e trilha com as 20 rodadas e as 4 provas. Na barra de cima, a nuvem mostra se o progresso está salvo.
+Em todas as telas, o botão **Voltar** no topo leva à tela anterior.
+
+- **Intensivo:** painel do dia com as 500 essenciais (estudadas, fixadas, tempo, ritmo e próxima ação), aviso de pausa e trilha com as 20 rodadas e as 4 provas. Na barra de cima, a nuvem mostra se o progresso está salvo.
+- **Etapas:** os 55 cards por parte, com o progresso de palavras, frases e etapas. Cada etapa abre uma página com os botões de estudo, as palavras, as frases ou a conversa, e a lista para copiar.
 - **To be:** a trilha de 11 lições e a cola do verbo to be.
-- **Palavras:** as 500 palavras com filtro (novas, em treino, fixadas) e busca. Tocar numa palavra abre áudio, exemplo, teste de pronúncia e anotação.
-- **Revisar:** revisões vencidas, caixas de Leitner, "Treinar as que faltam" e "Revisão relâmpago".
-- **Caderno:** anotações livres e as notas de cada palavra, com dicas de associação.
+- **Palavras:** as 1000 palavras com filtro (novas, em treino, fixadas) e busca. Tocar numa palavra abre áudio, exemplo, teste de pronúncia e anotação.
+- **Revisar:** revisões vencidas, frases para revisar, caixas de Leitner, "Treinar as que faltam" e "Revisão relâmpago".
+- **Caderno:** anotações livres e as notas de cada palavra e de cada frase, com dicas de associação.
 - **Método:** as técnicas, o plano das 8 horas e o que esperar de forma realista.
 - **Ajustes:** sincronização, "Já estudei até a palavra nº", nome, voz, tema, backup, reiniciar o cronômetro e apagar tudo.
 
@@ -93,7 +126,10 @@ Ao publicar uma versão nova, mude o valor de `VERSION` em `sw.js` para os apare
 index.html            entrada do app
 css/styles.css        design system: cores, tipografia e componentes
 js/config.js          endereço do Supabase e chave publicável
-js/words.js           as 500 palavras (inglês, português, exemplo e tradução), blocos e rodadas
+js/words.js           as 500 palavras essenciais (inglês, português, exemplo e tradução), blocos e rodadas
+js/areas.js           as etapas por área: as outras 500 palavras e as frases prontas
+js/dodid.js           lições e treinos de verbos com do, does e did
+js/situacoes.js       as situações do cotidiano em diálogo
 js/tobe.js            a trilha do verbo to be: explicações, tabelas, exemplos e exercícios
 js/store.js           progresso, revisão espaçada em minutos, cronômetro e posição das etapas
 js/sync.js            sincronização com o Supabase (site) ou com a conta do Claude (link do Claude)
@@ -104,4 +140,6 @@ manifest.webmanifest  instalação na tela inicial
 supabase/migrations/  tabela, funções e bucket do Supabase
 ```
 
-Para trocar ou corrigir palavras, edite `js/words.js`. Cada linha segue o formato `[inglês, português, exemplo, tradução do exemplo]`, e a lista precisa ter 500 itens. As lições de to be ficam em `js/tobe.js`.
+Para trocar ou corrigir as essenciais, edite `js/words.js`. Cada linha segue o formato `[inglês, português, exemplo, tradução do exemplo]`, e a lista precisa ter 500 itens. As lições de to be ficam em `js/tobe.js`.
+
+Nas etapas (`js/areas.js`), o progresso de cada palavra nova fica guardado pela posição dela. Por isso, só acrescente etapas e palavras no fim do arquivo: não reordene nem apague.

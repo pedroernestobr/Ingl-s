@@ -1,4 +1,5 @@
-/* Intensivo 500 — 500 palavras em 8 horas. Telas, navegação, trilha de rodadas e o player de estudo. */
+/* Intensivo 1000 — as 500 palavras essenciais em 8 horas e mais 500 por área, em etapas com frases e situações.
+   Telas, navegação, trilhas, etapas e o player de estudo. */
 (function () {
   "use strict";
 
@@ -7,6 +8,20 @@
   const BLOCKS = window.BLOCKS;
   const ROUND_NAMES = window.ROUND_NAMES;
   const MIN = 60000;
+
+  /* Etapas por área (js/areas.js, js/dodid.js, js/situacoes.js), na ordem das partes. */
+  const PARTS = window.ETAPA_PARTS || [];
+  const DODID = window.DODID || [];
+  const ETAPAS = PARTS.flatMap((p) => (window.ETAPAS || []).filter((e) => e.part === p.key));
+  ETAPAS.forEach((e, k) => {
+    e.n = k + 1;
+    e.partIdx = PARTS.findIndex((p) => p.key === e.part);
+    if (e.kind === "dialog") {
+      e.mine = e.lines.filter((l) => l[0] === "v").map((l) => [l[1], l[2]]);
+      e.phrases = e.mine.concat(e.extra || []);
+    }
+  });
+  const etapaById = Object.fromEntries(ETAPAS.map((e) => [e.id, e]));
 
   /* ───────── Utilitários ───────── */
   const $ = (sel, root) => (root || document).querySelector(sel);
@@ -70,7 +85,40 @@
     coffee: '<path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M12 3v3"/>',
     brain: '<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h0a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path d="M15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3h0a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>',
     moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
-    cloud: '<path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.9 11a3.75 3.75 0 0 1-.4 7.5z"/>'
+    cloud: '<path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.9 11a3.75 3.75 0 0 1-.4 7.5z"/>',
+    grid: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>',
+    hash: '<path d="M9.5 4 7.5 20M16.5 4l-2 16M4.5 9h15.5M4 15h15.5"/>',
+    palette: '<path d="M12 3a9 9 0 0 0 0 18c1.4 0 2-1 2-2s-.8-1.6-.8-2.6c0-1.2 1-2.1 2.2-2.1H18a3 3 0 0 0 3-3C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7.5" r="1.2"/>',
+    apple: '<path d="M12 7.5c-1.5-1-5-1.3-6.3 1.7-1.4 3.3.6 8.6 3 10.6 1.2 1 2.2.6 3.3.1 1.1.5 2.1.9 3.3-.1 2.4-2 4.4-7.3 3-10.6C17 6.2 13.5 6.5 12 7.5z"/><path d="M12 7.5c0-2 1-3.5 3-4"/>',
+    calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    hand: '<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11V5a1.5 1.5 0 0 1 3 0v6M14 11V6.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.5a6 6 0 0 1-5-2.7L3 15.5a1.5 1.5 0 0 1 2.5-1.6L8 16"/>',
+    question: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7M12 17h.01"/>',
+    thumb: '<path d="M7 11v9H4v-9zM7 11l4-7c1.5 0 2.5 1.2 2.2 2.7L12.5 10H18a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 16.8 20H7"/>',
+    spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4"/>',
+    fork: '<path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5M9 3v5M17 21V3c-2 1-3 4-3 7s1 3 3 3"/>',
+    bag: '<path d="M5 8h14l-1 12.5H6z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>',
+    shirt: '<path d="M8 3.5 3.5 6 5 10l2.5-1v11.5h9V9l2.5 1 1.5-4L16 3.5c-.5 1.5-2 2.5-4 2.5S8.5 5 8 3.5z"/>',
+    plane: '<path d="M21 15.5 13 11V5.5a1.5 1.5 0 0 0-3 0V11l-8 4.5V17l8-2.5V19l-2.5 1.8V22l4-1 4 1v-1.2L13 19v-4.5l8 2.5z"/>',
+    bed: '<path d="M3 18V6M3 14h18v4M21 14v-2.5a2.5 2.5 0 0 0-2.5-2.5H11v5"/><circle cx="7" cy="11" r="2"/>',
+    map: '<path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6z"/><path d="M9 4v14M15 6v14"/>',
+    siren: '<path d="M7 18v-6a5 5 0 0 1 10 0v6"/><path d="M5 18h14v3H5zM12 3v2M4.2 6.2l1.4 1.4M19.8 6.2l-1.4 1.4"/>',
+    heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/>',
+    people: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 4.8a3.2 3.2 0 0 1 0 6.4M17.5 14.2A6 6 0 0 1 21 20"/>',
+    smile: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01"/>',
+    pulse: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
+    house: '<path d="M4 10.5 12 4l8 6.5V20h-5.5v-6h-5v6H4z"/>',
+    briefcase: '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>',
+    rocket: '<path d="M14 4c3-1.5 6-1 6-1s.5 3-1 6l-6 6-5-5z"/><path d="M8 10H5l-2 3 4 1M14 16v3l-3 2-1-4M15.5 8.5h.01"/>',
+    mail: '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
+    money: '<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.8"/><path d="M6 9.5v5M18 9.5v5"/>',
+    music: '<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+    dumbbell: '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
+    passport: '<rect x="5" y="3" width="14" height="18" rx="2.5"/><circle cx="12" cy="10.5" r="3"/><path d="M9 16.5h6"/>',
+    car: '<path d="M5 16.5V12l2-5h10l2 5v4.5"/><path d="M3.5 12h17v4.5h-17z"/><circle cx="7.5" cy="18" r="1.6"/><circle cx="16.5" cy="18" r="1.6"/>',
+    pill: '<rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="m9.5 9.5 5 5"/>',
+    copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'
   };
   const icon = (name, cls) => '<svg class="icon ' + (cls || "") + '" viewBox="0 0 24 24" aria-hidden="true">' + ICON[name] + "</svg>";
   const chev = () => '<svg class="chev" viewBox="0 0 8 13" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5l-5 5"/></svg>';
@@ -144,6 +192,7 @@
   /* ───────── Navegação ───────── */
   const NAV = [
     { id: "intensivo", label: "Intensivo", icon: "route" },
+    { id: "etapas", label: "Etapas", icon: "grid" },
     { id: "tobe", label: "To be", icon: "layers" },
     { id: "palavras", label: "Palavras", icon: "textformat" },
     { id: "revisar", label: "Revisar", icon: "cards" },
@@ -153,7 +202,7 @@
   function renderShell() {
     $("#app").innerHTML =
       '<div class="app">' +
-      '<nav class="sidebar" aria-label="Navegação principal"><p class="side-title title2">Intensivo 500</p>' +
+      '<nav class="sidebar" aria-label="Navegação principal"><p class="side-title title2">Intensivo 1000</p>' +
       NAV.concat([{ id: "metodo", label: "Método", icon: "book" }, { id: "ajustes", label: "Ajustes", icon: "gear" }]).map((n) => '<a class="side-link" data-nav="' + n.id + '" href="#' + n.id + '">' + icon(n.icon) + "<span>" + n.label + '</span><span class="badge" data-badge="' + n.id + '" hidden></span></a>').join("") +
       '<p class="side-foot footnote secondary" id="side-foot"></p></nav>' +
       '<div class="main"><div class="main-inner">' +
@@ -166,27 +215,33 @@
   }
 
   /* Telas visitadas nesta sessão (a última é a atual). Sustenta o botão Voltar de cada tela. */
-  const VIEW_LABEL = { intensivo: "Intensivo", tobe: "To be", palavras: "Palavras", revisar: "Revisar", caderno: "Caderno", metodo: "Método", ajustes: "Ajustes" };
+  const VIEW_LABEL = { intensivo: "Intensivo", etapas: "Etapas", tobe: "To be", palavras: "Palavras", revisar: "Revisar", caderno: "Caderno", metodo: "Método", ajustes: "Ajustes" };
   let trail = [];
-  function trackView(v) {
-    const i = trail.indexOf(v);
+  function trackView(key) {
+    const i = trail.indexOf(key);
     if (i >= 0) trail = trail.slice(0, i + 1);
-    else trail.push(v);
+    else trail.push(key);
     if (trail.length > 30) trail = trail.slice(-30);
   }
-  function backFor(v) {
-    if (v === "intensivo") return null;
-    const prev = trail.length > 1 ? trail[trail.length - 2] : "intensivo";
-    return ["#" + prev, VIEW_LABEL[prev]];
+  function labelOf(key) {
+    if (key.startsWith("etapa-")) { const e = etapaById[key.slice(6)]; return e ? e.name : "Etapas"; }
+    return VIEW_LABEL[key] || "Voltar";
+  }
+  function backFor(key) {
+    if (key === "intensivo") return null;
+    let prev = trail.length > 1 ? trail[trail.length - 2] : key.startsWith("etapa-") ? "etapas" : "intensivo";
+    if (prev === key) prev = "intensivo";
+    return ["#" + prev, labelOf(prev)];
   }
 
   function updateChrome(r, meta) {
-    $$("[data-nav]").forEach((a) => { if (a.dataset.nav === r.view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+    const navId = r.view === "etapa" ? "etapas" : r.view;
+    $$("[data-nav]").forEach((a) => { if (a.dataset.nav === navId) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     const due = S.dueIds().length;
     $$('[data-badge="revisar"]').forEach((b) => { b.hidden = due === 0; b.textContent = due > 99 ? "99+" : due; });
     $("#navbar").hidden = !!meta.hideNav;
     $("#nav-title").textContent = meta.title;
-    const back = meta.back || backFor(r.view);
+    const back = meta.back || backFor(r.key);
     $("#nav-left").innerHTML = back ? '<a class="back-btn" href="' + back[0] + '" aria-label="Voltar para ' + esc(back[1]) + '">' + icon("chevL") + esc(back[1]) + "</a>" : "";
     const c = S.counts();
     const foot = $("#side-foot");
@@ -201,8 +256,10 @@
   window.addEventListener("scroll", onScroll, { passive: true });
 
   function route() {
-    const h = (location.hash || "").slice(1);
-    return { view: VIEWS[h] ? h : "intensivo" };
+    const h = decodeURIComponent((location.hash || "").slice(1));
+    if (h.startsWith("etapa-") && etapaById[h.slice(6)]) return { view: "etapa", id: h.slice(6), key: h };
+    const view = VIEWS[h] && h !== "etapa" ? h : "intensivo";
+    return { view, key: view };
   }
 
   function render() {
@@ -211,7 +268,7 @@
     if (!$("#view")) renderShell();
     const r = route();
     const out = VIEWS[r.view](r);
-    trackView(r.view);
+    trackView(r.key);
     closePopover();
     $("#view").innerHTML = out.html;
     updateChrome(r, out.meta);
@@ -236,13 +293,14 @@
   function renderOnboarding() {
     $("#app").innerHTML =
       '<div class="welcome"><div class="welcome-inner">' +
-      '<div class="app-icon" aria-hidden="true">500</div>' +
-      '<h1 class="h1 center two-tone">500 palavras.<span class="second">Em 8 horas. Hoje.</span></h1>' +
+      '<div class="app-icon" aria-hidden="true">1000</div>' +
+      '<h1 class="h1 center two-tone">1000 palavras.<span class="second">As 500 essenciais hoje.</span></h1>' +
       '<div class="features">' +
       [["target", "As 500 que mais importam", "As palavras mais usadas do inglês, em ordem de frequência. As 100 primeiras já formam cerca de metade de qualquer texto."],
         ["layers", "5 palavras por vez", "Ver, ouvir, repetir em voz alta, anotar e testar. Em grupos pequenos, como fazem os poliglotas."],
         ["repeat", "Revisão no minuto certo", "Cada palavra volta em 1, 10 e 30 minutos e depois em 2 horas, antes de você esquecer."],
-        ["chat", "Pronúncia e conversa", "Shadowing, falar frases em inglês e conversar com a IA em toda rodada."]]
+        ["chat", "Pronúncia e conversa", "Shadowing, falar frases em inglês e conversar com a IA em toda rodada."],
+        ["grid", "Etapas por área", "Números, cores, comida, aeroporto, negócios, startups e relacionamentos, com frases prontas e conversas para ensaiar."]]
         .map((f) => '<div class="feature-row"><span class="ficon">' + icon(f[0]) + '</span><div><p class="headline">' + f[1] + '</p><p class="subhead secondary">' + f[2] + "</p></div></div>").join("") +
       "</div>" +
       '<form id="onboard-form" class="view" novalidate style="gap:24px">' +
@@ -270,8 +328,11 @@
   const TOBE = window.TOBE;
   const TOBE_PARTS = window.TOBE_PARTS;
   const tobeLesson = (id) => TOBE.find((l) => l.id === id);
+  const grammarLesson = (id) => TOBE.find((l) => l.id === id) || DODID.find((l) => l.id === id);
+  const trailName = (lid) => (lid[0] === "d" ? "Do, does e did" : "Verbo to be");
 
   function nodeInfo(id) {
+    if (id.includes(":")) return etapaInfo(id);
     const n = +id.slice(1);
     if (id[0] === "r") return { kind: "round", n, block: S.blockOfRound(n), title: ROUND_NAMES[n - 1], words: S.roundRange(n), label: "Rodada " + n, est: "20 min" };
     if (id[0] === "c") return { kind: "check", n, block: n, title: "Prova do bloco " + n, words: S.blockRange(n), label: "Prova", est: "10 min" };
@@ -281,6 +342,7 @@
   const trailOf = (id) => (id[0] === "t" ? TOBE.map((l) => l.id) : S.nodeIds());
   const nextOf = (id) => (id[0] === "t" ? S.nextTobe() : S.nextId());
   function isLocked(id) {
+    if (id.includes(":")) return false;
     const nid = nextOf(id);
     if (!nid || S.isDone(id)) return false;
     const ids = trailOf(id);
@@ -296,14 +358,14 @@
 
   function nextAction() {
     const st = S.state;
-    const c = S.counts();
+    const c = S.coreCounts();
     const due = S.dueIds().length;
     const nid = S.nextId();
     if (!st.session.startedAt) return { label: "Começar o intensivo", action: "start-session" };
     const res = latestResume();
     if (res) {
       const info = nodeInfo(res.id);
-      const what = info.kind === "tobe" ? "o to be (" + info.label.toLowerCase() + ")" : info.kind === "round" ? "a rodada " + info.n : "a prova do bloco " + info.n;
+      const what = info.etapa ? "a etapa " + info.n + " (" + info.title + ")" : info.kind === "tobe" ? "o to be (" + info.label.toLowerCase() + ")" : info.kind === "round" ? "a rodada " + info.n : "a prova do bloco " + info.n;
       return { label: "Continuar " + what, action: "start", id: res.id, why: "Você parou no passo " + (res.i + 1) + " de " + stepsLeft(res) + ". Continua exatamente de onde saiu." };
     }
     if (due >= 15) return { label: "Revisar " + due + " palavras", action: "review", why: "Revisões vencidas vêm primeiro: é nessa hora que a memória fixa." };
@@ -320,13 +382,13 @@
         : { label: "Fazer a prova do bloco " + info.n, action: "start", id: nid, why: "30 palavras do bloco: veja em português e diga em inglês." };
     }
     if (tnext) return { label: "Verbo to be · " + nodeInfo(tnext).label, action: "start", id: tnext, why: "Termine a trilha do to be." };
-    if (c.learned < S.N) return { label: "Maratona final · faltam " + (S.N - c.learned), action: "practice-left", why: "Treine as palavras que ainda não fixaram até chegar às 500." };
-    return { label: "Revisão relâmpago", action: "practice-random", why: "Você fixou as 500. Amanhã, revise as que voltarem." };
+    if (c.learned < S.CORE) return { label: "Maratona final · faltam " + (S.CORE - c.learned), action: "practice-left", why: "Treine as palavras que ainda não fixaram até chegar às 500." };
+    return { label: "Ir para as etapas por área", action: "go-etapas", why: "Você fixou as 500 essenciais. Agora: palavras por área, frases prontas e situações." };
   }
 
   function dashboard() {
     const st = S.state;
-    const c = S.counts();
+    const c = S.coreCounts();
     const el = S.elapsedMin();
     const target = S.paceTarget();
     const diff = c.seen - target;
@@ -334,18 +396,18 @@
     const due = S.dueIds().length;
     const tb = S.tobeCount();
     let pace;
-    if (c.learned >= S.N) pace = "Você fixou as 500 palavras.";
-    else if (el >= S.SESSION_MIN) pace = "As 8 horas acabaram. Faltam " + (S.N - c.learned) + " para fixar: siga na maratona final.";
+    if (c.learned >= S.CORE) pace = "Você fixou as 500 palavras essenciais.";
+    else if (el >= S.SESSION_MIN) pace = "As 8 horas acabaram. Faltam " + (S.CORE - c.learned) + " para fixar: siga na maratona final.";
     else if (el < 15) pace = "Primeiros minutos. Cada palavra estudada já fica registrada; ela fixa depois de duas revisões.";
     else if (diff >= 0) pace = "Você está " + plural(diff, "palavra", "palavras") + " à frente do ritmo das 8 horas.";
     else pace = "Você está " + plural(-diff, "palavra", "palavras") + " atrás do ritmo. Uma rodada agora recupera.";
-    const pct = (n) => Math.round((n / S.N) * 100);
+    const pct = (n) => Math.round((n / S.CORE) * 100);
     const timePct = Math.round((Math.min(el, S.SESSION_MIN) / S.SESSION_MIN) * 100);
     const bar = (label, p, cls, mark) => '<div class="dash-bar"><span class="caption secondary">' + label + '</span><div class="progress ' + (cls || "") + '" role="img" aria-label="' + label + " " + p + '%"><span style="width:' + p + '%"></span>' + (mark != null ? '<i class="target" style="left:' + mark + '%" title="Ritmo ideal agora"></i>' : "") + "</div></div>";
     return '<div class="card dash">' +
       '<div class="dash-stats">' +
-      '<div><p class="eyebrow">Estudadas</p><p class="dash-num">' + c.seen + "<small>/" + S.N + "</small></p></div>" +
-      '<div><p class="eyebrow">Fixadas</p><p class="dash-num">' + c.learned + "<small>/" + S.N + "</small></p></div>" +
+      '<div><p class="eyebrow">Estudadas</p><p class="dash-num">' + c.seen + "<small>/" + S.CORE + "</small></p></div>" +
+      '<div><p class="eyebrow">Fixadas</p><p class="dash-num">' + c.learned + "<small>/" + S.CORE + "</small></p></div>" +
       '<div><p class="eyebrow">Tempo</p><p class="dash-num"><span data-live="elapsed">' + hm(Math.min(el, 999 * 60)) + "</span><small>/8:00</small></p></div>" +
       "</div>" +
       '<div class="dash-bars">' + bar("Estudadas", pct(c.seen), "good", pct(target)) + bar("Fixadas", pct(c.learned)) + bar("Tempo", timePct) + "</div>" +
@@ -353,7 +415,10 @@
       '<button class="btn btn-filled btn-large" data-action="' + act.action + '"' + (act.id ? ' data-id="' + act.id + '" data-force="1"' : "") + ">" + icon("play") + esc(act.label) + "</button>" +
       (act.why ? '<p class="footnote secondary center">' + esc(act.why) + "</p>" : "") +
       (due && act.action !== "review" ? '<button class="btn btn-plain" data-action="review" style="align-self:center">Revisar ' + plural(due, "palavra vencida", "palavras vencidas") + "</button>" : "") +
-      list([cell({ href: "#tobe", icon: "layers", title: "Verbo to be", sub: "Trilha completa de gramática", value: tb + "/" + TOBE.length, chevron: true })], "icons flat") +
+      list([
+        cell({ href: "#tobe", icon: "layers", title: "Verbo to be", sub: "Trilha completa de gramática", value: tb + "/" + TOBE.length, chevron: true }),
+        cell({ href: "#etapas", icon: "grid", title: "Etapas por área", sub: "Mais 500 palavras, frases e situações", value: etapasDoneCount() + "/" + ETAPAS.length, chevron: true })
+      ], "icons flat") +
       '<p class="footnote tertiary center">Fixada = lembrada duas vezes, com 10 minutos de intervalo. Começou às ' + clock(st.session.startedAt) + " · termina às " + clock(st.session.startedAt + S.SESSION_MIN * MIN) + "</p>" +
       "</div>";
   }
@@ -439,7 +504,7 @@
 
   function viewIntensivo() {
     const st = S.state;
-    const c = S.counts();
+    const c = S.coreCounts();
     const due = S.dueIds().length;
     const started = !!st.session.startedAt;
     const name = st.profile.name;
@@ -455,7 +520,7 @@
     html += ltHeader(started ? c.seen + " de 500." : "500 palavras.", {
       eyebrow: started ? (name ? esc(name) + " · " : "") + "palavras estudadas hoje" : (name ? "Olá, " + esc(name) : "Olá"),
       avatar: false, cls: "trail-hero",
-      second: started ? (c.learned ? c.learned + " já fixadas." : "Faltam " + (S.N - c.seen) + ".") : "Em 8 horas. Hoje."
+      second: started ? (c.learned ? c.learned + " já fixadas." : "Faltam " + (S.CORE - c.seen) + ".") : "Em 8 horas. Hoje."
     });
     if (!S.storageOk) html += '<p class="tag">Este navegador não está salvando seu progresso (modo privado?).</p>';
     if (S.breakDue()) html += breakCard();
@@ -466,7 +531,10 @@
     }
     html += '<div class="path-end">' + icon("trophy") + '<p class="headline">Maratona final</p><p class="subhead secondary">Treine as que faltam até as 500 ficarem fixadas.</p>' +
       (!nid ? '<button class="btn btn-filled" data-action="practice-left" style="margin-top:12px">Treinar as que faltam</button>' : "") + "</div>" +
-      list([cell({ href: "#metodo", icon: "bulb", title: "Como funciona o método", sub: "As técnicas e o plano das 8 horas", chevron: true })], "icons");
+      list([
+        cell({ href: "#etapas", icon: "grid", title: "Depois das 500: as etapas", sub: "Mais 500 palavras por área, frases prontas e situações do dia a dia", chevron: true }),
+        cell({ href: "#metodo", icon: "bulb", title: "Como funciona o método", sub: "As técnicas e o plano das 8 horas", chevron: true })
+      ], "icons");
     return { html, meta: { title: "Intensivo", hideNav: true } };
   }
 
@@ -587,6 +655,17 @@
       any = true;
       out += section("Rodada " + r + " · " + esc(ROUND_NAMES[r - 1]), list(rows.map(wordRow), "icons"));
     }
+    ETAPAS.filter((e) => e.kind === "words").forEach((e) => {
+      const rows = e.idx.filter((i) => {
+        if (i < S.CORE) return false; // as essenciais já aparecem nas rodadas acima
+        const w = S.word(i);
+        if (wordFilter !== "all" && S.status(i) !== wordFilter) return false;
+        return !nq || w.en.toLowerCase().includes(nq) || w.pt.toLowerCase().includes(nq);
+      });
+      if (!rows.length) return;
+      any = true;
+      out += section('<a href="#etapa-' + e.id + '">Etapa ' + e.n + " · " + esc(e.name) + "</a>", list(rows.map(wordRow), "icons"));
+    });
     return any ? out : '<p class="subhead secondary center" style="padding:24px 0">Nenhuma palavra aqui ainda.</p>';
   }
 
@@ -594,7 +673,7 @@
     const c = S.counts();
     const seg = [["all", "Todas"], ["new", "Novas"], ["training", "Em treino"], ["learned", "Fixadas"]];
     const html =
-      ltHeader("500 palavras.", { eyebrow: "As mais usadas do inglês", second: c.seen + " estudadas, " + c.learned + " fixadas." }) +
+      ltHeader(S.N + " palavras.", { eyebrow: "As 500 essenciais e as das etapas", second: c.seen + " estudadas, " + c.learned + " fixadas." }) +
       '<div class="segmented" role="group" aria-label="Filtro" data-filter>' + seg.map((s) => '<button type="button" data-value="' + s[0] + '" aria-pressed="' + (wordFilter === s[0]) + '">' + s[1] + "</button>").join("") + "</div>" +
       '<label class="search">' + icon("search", "icon-sm") + '<span class="sr-only">Buscar</span><input id="word-search" data-input="wsearch" type="search" placeholder="Buscar em inglês ou português"></label>' +
       '<div id="word-groups" class="view" style="gap:30px">' + wordGroups("") + "</div>";
@@ -617,7 +696,12 @@
       '<div class="field-note"><label class="eyebrow" for="sheet-note">Sua anotação</label><textarea id="sheet-note" class="note-box" data-input="note" data-i="' + i + '" placeholder="Uma associação, um som parecido, uma frase sua">' + esc(S.state.notes[i] || "") + "</textarea></div>" +
       (c ? '<p class="footnote secondary">Acertos: ' + c.ok + " · Erros: " + c.bad + "</p>" : "") +
       "</div>";
-    const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey, true); if (route().view === "palavras") refreshWordGroups(); };
+    const close = () => {
+      wrap.remove();
+      document.removeEventListener("keydown", onKey, true);
+      if (route().view === "palavras") refreshWordGroups();
+      else if (route().view === "etapa" && !P) { const y = window.scrollY; render(); window.scrollTo(0, y); }
+    };
     const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
     wrap.addEventListener("click", (e) => { if (e.target === wrap || e.target.closest("[data-sheet-close]")) close(); });
     document.addEventListener("keydown", onKey, true);
@@ -637,6 +721,8 @@
     const counts = S.boxCounts();
     const max = Math.max(1, ...counts);
     const nextIn = S.nextDueIn();
+    const pc = S.pcounts();
+    const pdue = S.pdueIds().length;
     let hero;
     if (due) {
       hero = '<div class="card pad-lg" style="display:flex;flex-direction:column;gap:16px">' +
@@ -654,6 +740,7 @@
     const html =
       ltHeader("Revisar.", { eyebrow: "Repetição espaçada", second: due ? plural(due, "palavra", "palavras") + " agora." : "Em dia." }) +
       hero +
+      (pc.seen ? section("Frases prontas", list([cell({ action: "review-phrases", icon: "chat", title: pdue ? "Revisar " + plural(pdue, "frase", "frases") + " agora" : "Nenhuma frase vencida agora", sub: pc.seen + " frases vistas nas etapas · " + pc.learned + " fixadas.", chevron: true })], "icons")) : "") +
       (c.seen ? section("Suas caixas", boxes, "Acertou, a palavra sobe de caixa e volta mais tarde. Errou, volta para a caixa 1. A partir da caixa 3 ela conta como fixada.") +
         section("Treino extra", list([
           cell({ action: "practice-left", icon: "target", title: "Treinar as que faltam", sub: plural(c.training, "palavra estudada e ainda não fixada", "palavras estudadas e ainda não fixadas") + ".", chevron: true }),
@@ -665,6 +752,7 @@
   /* ═══════════════════════ CADERNO ═══════════════════════ */
   function viewCaderno() {
     const notes = Object.keys(S.state.notes).map(Number).filter((i) => (S.state.notes[i] || "").trim()).sort((a, b) => a - b);
+    const pnotes = Object.keys(S.state.pnotes).filter((k) => (S.state.pnotes[k] || "").trim() && phraseById(k));
     const html =
       ltHeader("Caderno.", { eyebrow: "Suas anotações", second: plural(notes.length, "nota de palavra", "notas de palavras") + "." }) +
       section("Anotações livres", '<div class="list"><div class="cell"><label class="sr-only" for="pad">Anotações livres</label><textarea id="pad" data-input="pad" placeholder="Escreva frases suas com as palavras do dia, dúvidas, regras que você percebeu…" style="min-height:220px">' + esc(S.state.pad) + "</textarea></div></div>",
@@ -673,6 +761,10 @@
         action: "word", attrs: 'data-i="' + i + '"', lead: '<span class="wbadge rank">' + (i + 1) + "</span>",
         title: '<span lang="en">' + esc(S.word(i).en) + "</span> · " + esc(S.word(i).pt), sub: esc(S.state.notes[i]), chevron: true
       })), "icons") : list([cell({ title: '<span class="secondary">Anote associações ao aprender cada palavra. Elas aparecem aqui.</span>' })])) +
+      section("Notas por frase", pnotes.length ? list(pnotes.map((k) => {
+        const p = phraseById(k);
+        return cell({ action: "phrase", attrs: 'data-pid="' + k + '"', title: '<span lang="en">' + esc(p.en) + "</span>", sub: esc(S.state.pnotes[k]), chevron: true });
+      }), "icons") : list([cell({ title: '<span class="secondary">Anote ao decorar as frases das etapas. Elas aparecem aqui.</span>' })])) +
       section("Como anotar (técnica dos poliglotas)", list([
         cell({ icon: "wave", title: "Som parecido", sub: "<b>cheap</b> (barato) soa como “chip”: o chip é barato." }),
         cell({ icon: "bulb", title: "Imagem exagerada", sub: "<b>hungry</b> (com fome) lembra “Hungria”: imagine passar fome na Hungria." }),
@@ -693,11 +785,16 @@
       ["headphones", "Shadowing", "Repita junto com o áudio, imitando ritmo e entonação."],
       ["chat", "Tradução reversa e conversa", "Veja a frase em português e diga em inglês. Depois converse com a IA usando as palavras da rodada."],
       ["pencil", "Associação e anotação", "Um som parecido ou uma imagem exagerada liga a palavra nova ao que você já sabe."],
-      ["coffee", "Pausas e sono", "10 minutos de pausa a cada 50. Dormir à noite consolida o que você estudou hoje."]
+      ["coffee", "Pausas e sono", "10 minutos de pausa a cada 50. Dormir à noite consolida o que você estudou hoje."],
+      ["chat", "Frases prontas", "O nativo fala em blocos: “Can I get…?”, “I'm running late”. Decore a frase inteira, não só a palavra."],
+      ["repeat", "Do, does e did", "Um verbo, nove frases: eu, você e ela, afirmando, negando e perguntando, no presente e no passado."],
+      ["people", "Ensaio de situações", "Ensaie a balada, o restaurante e a reunião antes de viver a cena. Na hora, a frase sai sozinha."]
     ];
     const html =
       ltHeader("Método.", { eyebrow: "Como funciona", second: "O que os poliglotas fazem." }) +
-      section("10 técnicas", list(tech.map((t) => cell({ icon: t[0], title: t[1], sub: t[2] })), "icons")) +
+      section(tech.length + " técnicas", list(tech.map((t) => cell({ icon: t[0], title: t[1], sub: t[2] })), "icons")) +
+      section("Depois das 500: as etapas", list(PARTS.map((p, k) => cell({ lead: '<span class="wbadge">' + (k + 1) + "</span>", title: esc(p.name), sub: esc(p.desc) })), "icons"),
+        "Cada etapa é um card: estude as palavras, decore as frases com os cards de memória e ensaie as conversas.") +
       section("O dia de 8 horas", list(BLOCKS.map((b, k) => cell({
         lead: '<span class="wbadge">' + (k + 1) + "</span>",
         title: esc(b.name) + ' <span class="secondary">· ' + (k * 2) + "h–" + ((k + 1) * 2) + "h</span>",
@@ -726,7 +823,7 @@
     const c = S.counts();
     const html =
       ltHeader("Ajustes.", { avatar: false }) +
-      list([cell({ lead: '<span class="avatar lg">' + initial() + "</span>", title: '<span class="title3">' + (st.profile.name ? esc(st.profile.name) : "Estudante") + "</span>", sub: c.seen + " de 500 estudadas · " + c.learned + " fixadas" + (st.session.startedAt ? " · começou às " + clock(st.session.startedAt) : "") })]) +
+      list([cell({ lead: '<span class="avatar lg">' + initial() + "</span>", title: '<span class="title3">' + (st.profile.name ? esc(st.profile.name) : "Estudante") + "</span>", sub: c.seen + " de " + S.N + " estudadas · " + c.learned + " fixadas" + (st.session.startedAt ? " · começou às " + clock(st.session.startedAt) : "") })]) +
       (window.Sync && Sync.inClaude
         ? section("Progresso na nuvem", list([
           cell({ icon: "cloud", title: "Status", value: '<span data-live="sync">' + esc(syncText()) + "</span>" }),
@@ -763,7 +860,377 @@
     return { html, meta: { title: "Ajustes" } };
   }
 
-  const VIEWS = { intensivo: viewIntensivo, tobe: viewTobe, palavras: viewPalavras, revisar: viewRevisar, caderno: viewCaderno, metodo: viewMetodo, ajustes: viewAjustes };
+  /* ═══════════════════════ ETAPAS ═══════════════════════
+     Cada etapa é um card. Sessões de estudo: "w:" palavras, "f:" frases, "s:" situação (diálogo),
+     "g:" lição de do/does/did e "k:" treino de verbos. Frases: chave "etapa.n". */
+  const SESSION_KIND = { w: "wordset", f: "phrases", s: "dialog", g: "grammar", k: "drill" };
+  const KIND_PREFIX = { phrases: "f:", dialog: "s:", grammar: "g:", drill: "k:" };
+  const pidOf = (e, k) => e.id + "." + k;
+  let dialogPlaying = null;
+
+  function phraseById(pid) {
+    const cut = pid.lastIndexOf(".");
+    const e = etapaById[pid.slice(0, cut)];
+    const p = e && e.phrases && e.phrases[+pid.slice(cut + 1)];
+    return p ? { pid, en: p[0], pt: p[1], etapa: e } : null;
+  }
+  function sessionsOf(e) { return e.kind === "words" ? ["w:" + e.id, "f:" + e.id] : [KIND_PREFIX[e.kind] + e.id]; }
+  const etapaDone = (e) => sessionsOf(e).every((sid) => S.isDone(sid));
+  function etapasDoneCount() { return ETAPAS.filter(etapaDone).length; }
+  const phraseIds = (e) => (e.phrases || []).map((_, k) => pidOf(e, k));
+  function etapaProgress(e) {
+    const parts = sessionsOf(e).map((sid) => {
+      if (S.isDone(sid)) return 1;
+      const res = resumeFor(sid);
+      let f = res ? res.i / Math.max(1, stepsLeft(res)) : 0;
+      if (sid[0] === "w") f = Math.max(f, seenIn(e.idx) / e.idx.length);
+      if (sid[0] === "f" || sid[0] === "s") f = Math.max(f, S.pcounts(phraseIds(e)).seen / Math.max(1, e.phrases.length));
+      return Math.min(0.95, f);
+    });
+    return parts.reduce((a, b) => a + b, 0) / parts.length;
+  }
+  function etapaSummary(e) {
+    if (e.kind === "words") return e.idx.length + " palavras · " + e.phrases.length + " frases";
+    if (e.kind === "phrases") return e.phrases.length + " frases prontas";
+    if (e.kind === "dialog") return "Diálogo · " + e.lines.length + " falas";
+    if (e.kind === "grammar") return "Lição · " + e.desc;
+    return e.verbs.length + " verbos · 9 frases cada";
+  }
+  function etapaInfo(sid) {
+    const e = etapaById[sid.slice(2)];
+    const kind = SESSION_KIND[sid[0]];
+    if (!e) return { kind: "unknown", n: 0, title: "Etapa", sub: "", words: [], label: "Etapa", est: "" };
+    const base = { kind, etapa: e, n: e.n, title: e.name, sub: e.desc, words: [] };
+    if (kind === "wordset") return Object.assign(base, { words: e.idx, label: "Etapa " + e.n + " · palavras", est: "15 min" });
+    if (kind === "phrases") return Object.assign(base, { label: "Etapa " + e.n + " · frases", est: Math.max(5, Math.round(e.phrases.length * 0.7)) + " min" });
+    if (kind === "dialog") return Object.assign(base, { label: "Etapa " + e.n + " · situação", est: "10 min" });
+    if (kind === "grammar") {
+      const l = grammarLesson(e.lesson);
+      return Object.assign(base, { lesson: e.lesson, review: !!l.review, label: "Etapa " + e.n + " · lição", est: l.review ? "8 min" : "6 min" });
+    }
+    return Object.assign(base, { label: "Etapa " + e.n + " · treino", est: e.verbs.length * 2 + " min" });
+  }
+
+  /* ───────── Sessões das etapas ───────── */
+  function sessionOf(sid, steps) {
+    return { mode: "node", id: sid, info: nodeInfo(sid), steps, i: 0, correct: 0, total: 0, reviewed: 0, easy: 0, startedAt: Date.now() };
+  }
+  /* Frases curtas e só com letras viram "monte a frase". */
+  const orderable = (en) => { const n = en.replace(/[.,?!]/g, "").trim().split(/\s+/).length; return n >= 3 && n <= 9 && /^[A-Za-z' ,.?!-]+$/.test(en); };
+  function phraseChoice(e, k) {
+    const p = e.phrases[k];
+    const wrongs = shuffle(e.phrases.filter((_, j) => j !== k).map((x) => x[0])).slice(0, 3);
+    return makeChoice("Como se diz “" + p[1] + "”?", p[0], wrongs, { pid: pidOf(e, k), e: p[0] + " = " + p[1], say: p[0], label: "Frase" });
+  }
+  function buildEtapa(sid) {
+    const e = etapaById[sid.slice(2)];
+    const kind = SESSION_KIND[sid[0]];
+    if (kind === "wordset") return buildWordSet(e, sid);
+    if (kind === "phrases") return buildPhrases(e, sid);
+    if (kind === "dialog") return buildDialog(e, sid);
+    if (kind === "grammar") return buildTobe(e.lesson, sid);
+    return buildDrill(e, sid);
+  }
+  function buildWordSet(e, sid) {
+    const words = e.idx;
+    const steps = [{ type: "intro" }];
+    S.dueIds(10, words).forEach((i) => steps.push({ type: "card", i, warm: true }));
+    const kinds = ["meaning", "reverse", "listen"];
+    for (let g = 0; g * 5 < words.length; g++) {
+      const group = words.slice(g * 5, g * 5 + 5);
+      group.forEach((i, k) => steps.push({ type: "learn", i, n: g * 5 + k + 1, g: g + 1, of: words.length }));
+      shuffle(group).forEach((i, k) => steps.push(quizStep(kinds[(g + k) % 3], i, words)));
+    }
+    shuffle(words).slice(0, 3).forEach((i, k) => steps.push({ type: "shadow", i, k: k + 1, n: 3 }));
+    shuffle(words).slice(0, 3).forEach((i, k) => steps.push({ type: "speak", i, k: k + 1, n: 3 }));
+    if (aiReady()) steps.push({ type: "talk", words, msgs: [] });
+    steps.push({ type: "finish" });
+    return sessionOf(sid, steps);
+  }
+  function buildPhrases(e, sid) {
+    const list = e.phrases;
+    const all = list.map((_, k) => k);
+    const steps = [{ type: "intro" }];
+    for (let g = 0; g * 5 < list.length; g++) {
+      const ks = all.slice(g * 5, g * 5 + 5);
+      ks.forEach((k) => steps.push({ type: "phrase", pid: pidOf(e, k), en: list[k][0], pt: list[k][1], n: k + 1, of: list.length }));
+      shuffle(ks).forEach((k, j) => steps.push(j % 2 === 0 && orderable(list[k][0])
+        ? { type: "order", order: list[k][0], pt: list[k][1], label: "Monte a frase", pid: pidOf(e, k) }
+        : phraseChoice(e, k)));
+    }
+    shuffle(all).slice(0, 2).forEach((k, j) => steps.push({ type: "shadow", en: list[k][0], pt: list[k][1], k: j + 1, n: 2 }));
+    shuffle(all).slice(0, 3).forEach((k, j) => steps.push({ type: "speak", en: list[k][0], pt: list[k][1], pid: pidOf(e, k), k: j + 1, n: 3 }));
+    if (aiReady()) steps.push({ type: "talk", etapa: e.id, words: [], msgs: [] });
+    steps.push({ type: "finish" });
+    return sessionOf(sid, steps);
+  }
+  function buildDialog(e, sid) {
+    const steps = [{ type: "intro" }, { type: "dialog", eid: e.id }];
+    let m = 0;
+    e.lines.forEach((l, k) => {
+      if (l[0] !== "v") return;
+      const prev = k > 0 && e.lines[k - 1][0] === "o" ? e.lines[k - 1] : null;
+      steps.push({ type: "line", eid: e.id, pid: pidOf(e, m), en: l[1], pt: l[2], prevEn: prev ? prev[1] : "", prevPt: prev ? prev[2] : "", k: m + 1, n: e.mine.length });
+      m += 1;
+    });
+    shuffle(e.mine.map((_, j) => j).filter((j) => orderable(e.mine[j][0]))).slice(0, 2)
+      .forEach((j) => steps.push({ type: "order", order: e.mine[j][0], pt: e.mine[j][1], label: "Monte a frase", pid: pidOf(e, j) }));
+    if (e.extra && e.extra.length) steps.push({ type: "extras", eid: e.id });
+    if (aiReady()) steps.push({ type: "talk", dialog: e.id, words: [], msgs: [] });
+    steps.push({ type: "finish" });
+    return sessionOf(sid, steps);
+  }
+  function buildDrill(e, sid) {
+    const steps = [{ type: "intro" }];
+    e.verbs.forEach((v, vi) => {
+      const forms = window.drillForms(v);
+      steps.push({ type: "forms", eid: e.id, v: vi, n: vi + 1, of: e.verbs.length });
+      shuffle(forms).slice(0, 2).forEach((f) => steps.push(makeChoice("Como se diz “" + f.pt + "”?", f.en, f.wrong, { e: f.tag + ": " + f.en, say: f.en, label: f.tag })));
+      const f = forms[Math.floor(Math.random() * forms.length)];
+      steps.push({ type: "speak", en: f.en, pt: f.pt, k: vi + 1, n: e.verbs.length });
+    });
+    steps.push({ type: "finish" });
+    return sessionOf(sid, steps);
+  }
+  /* Cards de memória da etapa: palavras e frases, com as caixas de revisão. */
+  function buildDeck(e) {
+    const steps = [];
+    if (e.idx) shuffle(e.idx).forEach((i) => steps.push({ type: "card", i }));
+    shuffle(phraseIds(e)).forEach((pid) => { const p = phraseById(pid); steps.push({ type: "pcard", pid, en: p.en, pt: p.pt }); });
+    steps.push({ type: "finish" });
+    return { mode: "review", kind: "deck", eid: e.id, steps, i: 0, correct: 0, total: 0, reviewed: 0, easy: 0, startedAt: Date.now() };
+  }
+  function buildPhraseReview() {
+    const steps = S.pdueIds(30).map(phraseById).filter(Boolean).map((p) => ({ type: "pcard", pid: p.pid, en: p.en, pt: p.pt }));
+    steps.push({ type: "finish" });
+    return { mode: "review", kind: "phrases", steps, i: 0, correct: 0, total: 0, reviewed: 0, easy: 0, startedAt: Date.now() };
+  }
+
+  function etapaIntroRows(info) {
+    const e = info.etapa;
+    const talk = P.steps.some((s) => s.type === "talk");
+    if (info.kind === "phrases") {
+      const min = Math.max(2, Math.ceil(e.phrases.length / 4)) + " min";
+      const rows = [["chat", e.phrases.length + " frases prontas", "Ouça, repita e anote cada uma", min], ["zap", "Monte e escolha", "Cada frase volta num exercício", min], ["mic", "Fale em inglês", "3 frases do português para o inglês", "2 min"]];
+      if (talk) rows.push(["chat", "Conversa com IA", "Use as frases desta etapa", "3 min"]);
+      return rows;
+    }
+    if (info.kind === "dialog") {
+      const rows = [["headphones", "A conversa completa", e.lines.length + " falas, com tradução e áudio", "2 min"], ["mic", "Sua vez", "Você diz as suas " + e.mine.length + " falas em inglês", "5 min"], ["zap", "Monte as falas", "2 exercícios", "1 min"]];
+      if (e.extra && e.extra.length) rows.push(["chat", "Outras frases úteis", plural(e.extra.length, "frase", "frases") + " para a mesma situação", "1 min"]);
+      if (talk) rows.push(["chat", "Ensaio com IA", "A IA faz o papel de " + e.who.toLowerCase(), "3 min"]);
+      return rows;
+    }
+    return [
+      ["repeat", e.verbs.length + " verbos", e.verbs.map((v) => v[0]).join(", "), ""],
+      ["layers", "9 frases por verbo", "Eu, você e ela · presente e passado", ""],
+      ["zap", "2 exercícios por verbo", "Escolha a forma certa", ""],
+      ["mic", "1 frase por verbo", "Do português para o inglês", ""]
+    ];
+  }
+  function etapaFinish() {
+    const info = P.info;
+    const e = info.etapa;
+    const acc = P.total ? P.correct + "/" + P.total : "—";
+    const title = "Etapa " + e.n + " · " + { wordset: "palavras concluídas", phrases: "frases concluídas", dialog: "conversa concluída", grammar: "lição concluída", drill: "treino concluído" }[info.kind];
+    if (info.kind === "wordset") return { title, lead: S.isDone("f:" + e.id) ? "As palavras novas voltam em 10 e 30 minutos." : "Agora decore as " + e.phrases.length + " frases prontas desta etapa.", stats: [[e.idx.length, "palavras"], [acc, "acertos"], [S.counts().seen, "estudadas"]] };
+    if (info.kind === "phrases") return { title, lead: "As frases voltam nos cards e na aba Revisar.", stats: [[e.phrases.length, "frases"], [acc, "acertos"], [S.pcounts().seen, "frases vistas"]] };
+    if (info.kind === "dialog") return { title, lead: "Ensaie de novo amanhã: na segunda vez a conversa sai mais solta.", stats: [[e.mine.length, "falas suas"], [acc, "acertos"], [P.minutes, "min"]] };
+    if (info.kind === "grammar") return { title, lead: info.review ? "Você completou o do, does e did." : "Use as frases da lição hoje, em voz alta.", stats: [[acc, "acertos"], [DODID.filter((l) => S.isDone("g:" + l.id)).length + "/" + DODID.length, "lições"], [P.minutes, "min"]] };
+    return { title, lead: "Repita amanhã: com a repetição, a estrutura sai sem pensar.", stats: [[e.verbs.length, "verbos"], [acc, "acertos"], [P.minutes, "min"]] };
+  }
+  function etapaNextTarget(e, sid) {
+    const own = sessionsOf(e).find((x) => x !== sid && !S.isDone(x));
+    if (own) return { label: own[0] === "f" ? "Decorar as frases" : "Estudar as palavras", id: own };
+    const nx = ETAPAS[e.n];
+    return nx ? { label: "Próxima: " + nx.name, href: "etapa-" + nx.id } : null;
+  }
+
+  /* Texto simples para copiar e colar no caderno. */
+  function copyText(e) {
+    const out = ["Etapa " + e.n + " · " + e.name, dot(e.desc), ""];
+    if (e.kind === "words") {
+      out.push("PALAVRAS");
+      e.idx.forEach((i) => { const w = S.word(i); out.push(w.en + " — " + w.pt); });
+      out.push("");
+    }
+    if (e.kind === "dialog") {
+      out.push("CONVERSA");
+      e.lines.forEach((l) => out.push((l[0] === "v" ? "Você" : e.who) + ": " + l[1] + " (" + l[2] + ")"));
+      out.push("");
+      if (e.extra && e.extra.length) { out.push("OUTRAS FRASES"); e.extra.forEach((p) => out.push(p[0] + " — " + p[1])); }
+    } else if (e.phrases) {
+      out.push("FRASES PRONTAS");
+      e.phrases.forEach((p) => out.push(p[0] + " — " + p[1]));
+    }
+    if (e.kind === "grammar") {
+      const l = grammarLesson(e.lesson);
+      l.points.forEach((x) => out.push("• " + x));
+      if (l.table) { out.push(""); l.table.forEach((r) => out.push(r.join(" — "))); }
+      out.push("", "EXEMPLOS");
+      l.examples.forEach((x) => out.push(x[0] + " — " + x[1]));
+    }
+    if (e.kind === "drill") {
+      e.verbs.forEach((v) => {
+        out.push(v[0].toUpperCase() + " · " + v[2]);
+        window.drillForms(v).forEach((f) => out.push(f.en + " — " + f.pt));
+        out.push("");
+      });
+    }
+    return out.join("\n").trim();
+  }
+
+  function bubbleHtml(e, l, k) {
+    const me = l[0] === "v";
+    return '<div class="bubble ' + (me ? "me" : "ai") + '"' + (k != null ? ' data-line="' + k + '"' : "") + ">" +
+      '<p class="who">' + (me ? "Você" : esc(e.who)) + '</p><p lang="en">' + esc(l[1]) + '</p><p class="tr">' + esc(l[2]) + "</p>" +
+      speakBtn(l[1], "", "Ouvir") + "</div>";
+  }
+  const dialogHtml = (e) => '<div class="chat dialog">' + e.lines.map((l, k) => bubbleHtml(e, l, k)).join("") + "</div>";
+
+  function etapaCard(e) {
+    const pr = Math.round(etapaProgress(e) * 100);
+    const done = etapaDone(e);
+    const going = sessionsOf(e).some((sid) => resumeFor(sid));
+    const state = done ? "concluída" : going ? "em andamento" : pr ? "começada" : "";
+    return '<a class="etapa-card' + (done ? " done" : "") + '" href="#etapa-' + e.id + '" style="--c:var(--phase-' + ((e.partIdx % 4) + 1) + ')">' +
+      '<span class="etapa-icon">' + icon(e.icon || "grid") + "</span>" +
+      '<span class="etapa-body"><span class="etapa-num">Etapa ' + e.n + (state ? " · " + state : "") + "</span>" +
+      '<span class="etapa-title">' + esc(e.name) + "</span>" +
+      '<span class="etapa-sub">' + esc(etapaSummary(e)) + "</span>" +
+      '<span class="progress' + (done ? " good" : "") + '"><span style="width:' + (done ? 100 : pr) + '%"></span></span></span>' +
+      (done ? '<span class="etapa-check">' + icon("checkFill") + "</span>" : chev()) + "</a>";
+  }
+
+  function viewEtapas() {
+    const c = S.counts();
+    const allP = ETAPAS.reduce((n, e) => n + (e.phrases ? e.phrases.length : 0), 0);
+    const pc = S.pcounts();
+    const done = etapasDoneCount();
+    const res = Object.values(S.state.resumes).filter((r) => r.id.includes(":") && etapaById[r.id.slice(2)] && !S.isDone(r.id)).sort((x, y) => (y.at || 0) - (x.at || 0))[0];
+    const nextE = ETAPAS.find((e) => !etapaDone(e));
+    const bar = (label, n, total) => '<div class="dash-bar"><span class="caption secondary">' + label + '</span><div class="progress good" role="img" aria-label="' + label + ": " + n + " de " + total + '"><span style="width:' + Math.round((n / Math.max(1, total)) * 100) + '%"></span></div></div>';
+    let cta;
+    if (res) {
+      const info = nodeInfo(res.id);
+      cta = '<button class="btn btn-filled btn-large" data-action="start" data-id="' + res.id + '" data-force="1">' + icon("play") + "Continuar: " + esc(info.title) + "</button>";
+    } else if (nextE) {
+      cta = '<a class="btn btn-filled btn-large" href="#etapa-' + nextE.id + '">' + icon("play") + (done ? "Seguir: etapa " : "Começar: etapa ") + nextE.n + " · " + esc(nextE.name) + "</a>";
+    } else {
+      cta = '<p class="headline center">Você concluiu todas as etapas.</p>';
+    }
+    let html = ltHeader("Etapas.", { eyebrow: "Por área, em cards", second: c.seen + " de " + S.N + " palavras." }) +
+      '<div class="card dash">' +
+      '<div class="dash-stats">' +
+      '<div><p class="eyebrow">Palavras</p><p class="dash-num">' + c.seen + "<small>/" + S.N + "</small></p></div>" +
+      '<div><p class="eyebrow">Frases</p><p class="dash-num">' + pc.seen + "<small>/" + allP + "</small></p></div>" +
+      '<div><p class="eyebrow">Etapas</p><p class="dash-num">' + done + "<small>/" + ETAPAS.length + "</small></p></div></div>" +
+      '<div class="dash-bars">' + bar("Palavras", c.seen, S.N) + bar("Frases", pc.seen, allP) + bar("Etapas", done, ETAPAS.length) + "</div>" +
+      cta +
+      '<p class="footnote secondary center">Faça na ordem que quiser. Cada etapa tem palavras ou frases, cards de memória e uma lista para copiar no caderno.</p></div>';
+    PARTS.forEach((p, k) => {
+      const items = ETAPAS.filter((e) => e.part === p.key);
+      html += '<div class="phase-divider"><span>Parte ' + (k + 1) + " · " + esc(p.name) + "</span></div>" +
+        '<p class="subhead secondary center part-desc">' + esc(p.desc) + "</p>" +
+        '<div class="etapa-grid">' + items.map(etapaCard).join("") + "</div>";
+    });
+    return { html, meta: { title: "Etapas" } };
+  }
+
+  function phraseRow(e, k) {
+    const p = e.phrases[k];
+    const pid = pidOf(e, k);
+    const st = S.pstatus(pid);
+    const note = S.state.pnotes[pid];
+    return cell({
+      lead: speakBtn(p[0], "", "Ouvir"), lang: "en",
+      title: esc(p[0]), sub: esc(p[1]) + (note ? ' · <span class="note-mark">' + esc(note) + "</span>" : ""),
+      trail: (st !== "new" ? '<span class="tag' + (st === "learned" ? " good" : " tint") + '">' + STATUS_LABEL[st] + "</span>" : "") +
+        '<button class="icon-btn" data-action="phrase" data-pid="' + pid + '" aria-label="Anotar e treinar a pronúncia">' + icon("pencil") + "</button>"
+    });
+  }
+
+  function viewEtapa(r) {
+    const e = etapaById[r.id];
+    const part = PARTS[e.partIdx];
+    const btn = (sid, label, cls) => {
+      const res = resumeFor(sid);
+      const txt = res ? label + " · passo " + (res.i + 1) : S.isDone(sid) ? label + " de novo" : label;
+      return '<button class="btn ' + (cls || "btn-filled") + ' btn-large" data-action="start" data-id="' + sid + '" data-force="1">' + icon(S.isDone(sid) && !res ? "repeat" : "play") + esc(txt) + "</button>";
+    };
+    let actions;
+    if (e.kind === "words") actions = btn("w:" + e.id, "Estudar as " + e.idx.length + " palavras") + btn("f:" + e.id, "Decorar as " + e.phrases.length + " frases", "btn-tinted");
+    else if (e.kind === "phrases") actions = btn("f:" + e.id, "Decorar as " + e.phrases.length + " frases");
+    else if (e.kind === "dialog") actions = btn("s:" + e.id, "Ensaiar a conversa") + '<button class="btn btn-tinted btn-large" data-action="play-dialog" data-eid="' + e.id + '">' + icon("headphones") + "Ouvir a conversa inteira</button>";
+    else if (e.kind === "grammar") actions = btn("g:" + e.id, "Fazer a lição");
+    else actions = btn("k:" + e.id, "Começar o treino");
+    if (e.phrases || e.idx) actions += '<button class="btn btn-plain" data-action="deck" data-eid="' + e.id + '">' + icon("cards") + "Cards para memorizar</button>";
+    const second = e.kind === "words" ? e.idx.length + " palavras e " + e.phrases.length + " frases."
+      : e.kind === "phrases" ? e.phrases.length + " frases prontas."
+        : e.kind === "dialog" ? "Uma conversa de " + e.lines.length + " falas."
+          : e.kind === "grammar" ? dot(e.desc) : e.verbs.length + " verbos, 9 frases cada.";
+    let html = ltHeader(esc(e.name) + ".", { eyebrow: "Etapa " + e.n + " · " + esc(part.name), second: esc(second), avatar: false }) +
+      '<div class="card dash"><p class="subhead secondary">' + esc(dot(e.desc)) + "</p>" +
+      '<div class="dash-bar"><span class="caption secondary">Progresso</span><div class="progress good"><span style="width:' + (etapaDone(e) ? 100 : Math.round(etapaProgress(e) * 100)) + '%"></span></div></div>' +
+      actions + "</div>";
+    if (e.kind === "words") html += section("Palavras", list(e.idx.map(wordRow), "icons"), "Toque numa palavra para ouvir, testar a pronúncia e anotar.");
+    if (e.kind === "dialog") {
+      html += section("A conversa", dialogHtml(e), "Você conversa com: " + esc(e.who.toLowerCase()) + ". Toque no alto-falante para ouvir cada fala.");
+      if (e.extra && e.extra.length) html += section("Outras frases úteis", list(e.extra.map((_, j) => phraseRow(e, e.mine.length + j)), "icons"));
+    } else if (e.phrases) {
+      html += section(e.kind === "words" ? "Frases prontas" : "Frases", list(e.phrases.map((_, k) => phraseRow(e, k)), "icons"), "Toque no lápis para anotar e testar a pronúncia. As frases também entram nos cards.");
+    }
+    if (e.kind === "grammar") {
+      const l = grammarLesson(e.lesson);
+      if (l.points.length) html += section("Explicação", list(l.points.map((pt, k) => cell({ lead: '<span class="wbadge">' + (k + 1) + "</span>", title: esc(pt) })), "icons"));
+      if (l.table) html += section("Tabela", '<div class="card table-wrap"><table class="cola-table"><tbody>' + l.table.map((row) => "<tr>" + row.map((c, k) => (k ? "<td" + (k === 1 ? ' lang="en"' : "") + ">" : '<th scope="row">') + esc(c) + (k ? "</td>" : "</th>")).join("") + "</tr>").join("") + "</tbody></table></div>");
+      html += section("Exemplos", list(l.examples.map((x) => cell({ lead: speakBtn(x[0], "", "Ouvir"), title: esc(x[0]), sub: esc(x[1]), lang: "en" })), "icons"));
+    }
+    if (e.kind === "drill") {
+      html += e.verbs.map((v) => section('<span lang="en">' + esc(v[0]) + " · " + esc(v[2]) + "</span>",
+        list(window.drillForms(v).map((f) => cell({ lead: speakBtn(f.en, "", "Ouvir"), title: esc(f.en), sub: esc(f.pt) + ' · <span class="tertiary">' + esc(f.tag) + "</span>", lang: "en" })), "icons"))).join("");
+    }
+    html += section("Para anotar no caderno",
+      '<div class="card copy-card"><pre class="copy-text" id="copy-text">' + esc(copyText(e)) + "</pre></div>" +
+      '<button class="btn btn-tinted copy-btn" data-action="copy-etapa" data-eid="' + e.id + '">' + icon("copy") + "Copiar a lista</button>",
+      "Cole no seu caderno ou nas notas do celular. Escrever à mão ajuda a fixar.");
+    const prev = ETAPAS[e.n - 2], nx = ETAPAS[e.n];
+    const nav = [];
+    if (prev) nav.push(cell({ href: "#etapa-" + prev.id, icon: prev.icon || "grid", title: "Etapa anterior", sub: esc(prev.name), chevron: true }));
+    if (nx) nav.push(cell({ href: "#etapa-" + nx.id, icon: nx.icon || "grid", title: "Próxima etapa", sub: esc(nx.name), chevron: true }));
+    nav.push(cell({ href: "#etapas", icon: "grid", title: "Todas as etapas", chevron: true }));
+    html += list(nav, "icons");
+    return { html, meta: { title: e.name } };
+  }
+
+  function openPhraseSheet(pid) {
+    const p = phraseById(pid);
+    if (!p) return;
+    const c = S.pcard(pid);
+    const wrap = document.createElement("div");
+    wrap.className = "sheet-backdrop";
+    wrap.innerHTML =
+      '<div class="sheet" role="dialog" aria-modal="true" aria-label="Frase"><div class="sheet-grabber"></div>' +
+      '<div class="sheet-head"><span class="eyebrow">Etapa ' + p.etapa.n + " · " + esc(p.etapa.name) + " · " + STATUS_LABEL[S.pstatus(pid)] + (c ? " · caixa " + c.box : "") + '</span><button class="close-btn" data-sheet-close aria-label="Fechar">' + icon("x") + "</button></div>" +
+      '<div class="word-top"><p class="phrase-en" style="min-width:0"><span lang="en">' + esc(p.en) + '</span><span class="word-pt">' + esc(p.pt) + "</span></p>" + speakBtn(p.en, "lg", "Ouvir") + "</div>" +
+      '<div class="controls"><button class="btn btn-capsule" data-action="speak" data-text="' + esc(p.en) + '" data-rate="0.6">Devagar</button>' +
+      (SP.hasMic ? '<button class="btn btn-capsule" data-action="mic-text" data-text="' + esc(p.en) + '">' + icon("mic") + "Testar pronúncia</button>" : "") + "</div>" +
+      '<div class="mic-result" id="mic-result" hidden></div>' +
+      '<div class="field-note"><label class="eyebrow" for="sheet-pnote">Sua anotação</label><textarea id="sheet-pnote" class="note-box" data-input="pnote" data-pid="' + pid + '" placeholder="Quando usar, uma variação, uma frase sua">' + esc(S.state.pnotes[pid] || "") + "</textarea></div>" +
+      "</div>";
+    const close = () => {
+      wrap.remove();
+      document.removeEventListener("keydown", onKey, true);
+      if (!P) { const y = window.scrollY; render(); window.scrollTo(0, y); }
+    };
+    const onKey = (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); close(); } };
+    wrap.addEventListener("click", (ev) => { if (ev.target === wrap || ev.target.closest("[data-sheet-close]")) close(); });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(wrap);
+    if (S.state.settings.autoplay) setTimeout(() => SP.speak(p.en), 200);
+  }
+
+  const VIEWS = { intensivo: viewIntensivo, etapas: viewEtapas, etapa: viewEtapa, tobe: viewTobe, palavras: viewPalavras, revisar: viewRevisar, caderno: viewCaderno, metodo: viewMetodo, ajustes: viewAjustes };
 
   /* ═══════════════════════ PAUSA ═══════════════════════ */
   let breakTimer = null;
@@ -880,12 +1347,13 @@
     return makeChoice(ex.q, correct, ex.o.filter((_, i) => i !== ex.a), { e: ex.e, say: filled, label: "Exercício" });
   }
 
-  function buildTobe(id) {
-    const l = tobeLesson(id);
+  function buildTobe(id, sid) {
+    const l = grammarLesson(id);
+    const pool = id[0] === "d" ? DODID : TOBE;
     const steps = [{ type: "intro" }];
     let exs;
     if (l.review) {
-      exs = shuffle(TOBE.filter((x) => !x.review).flatMap((x) => x.ex)).slice(0, 15);
+      exs = shuffle(pool.filter((x) => !x.review).flatMap((x) => x.ex)).slice(0, 15);
     } else {
       steps.push({ type: "explain", lid: id });
       steps.push({ type: "examples", lid: id });
@@ -898,7 +1366,8 @@
     say.forEach((x, k) => steps.push({ type: "speak", en: x[0], pt: x[1], k: k + 1, n: say.length }));
     if (aiReady()) steps.push({ type: "talk", tobe: id, words: [], msgs: [] });
     steps.push({ type: "finish" });
-    return { mode: "node", id, info: nodeInfo(id), steps, i: 0, correct: 0, total: 0, reviewed: 0, easy: 0, startedAt: Date.now() };
+    const nid = sid || id;
+    return { mode: "node", id: nid, info: nodeInfo(nid), steps, i: 0, correct: 0, total: 0, reviewed: 0, easy: 0, startedAt: Date.now() };
   }
 
   /* Recria uma rodada ou lição salva no meio, no mesmo passo em que parou. */
@@ -915,7 +1384,8 @@
   function startNode(id) {
     const res = resumeFor(id);
     if (res && res.i < res.steps.length - 1) { openPlayer(revive(res)); toast("Continuando do passo " + (res.i + 1)); return; }
-    openPlayer(id[0] === "r" ? buildRound(+id.slice(1)) : id[0] === "c" ? buildCheck(+id.slice(1)) : buildTobe(id));
+    if (id.includes(":") && !etapaById[id.slice(2)]) { toast("Esta etapa não existe mais."); return; }
+    openPlayer(id.includes(":") ? buildEtapa(id) : id[0] === "r" ? buildRound(+id.slice(1)) : id[0] === "c" ? buildCheck(+id.slice(1)) : buildTobe(id));
   }
 
   function openPlayer(session) {
@@ -1025,43 +1495,45 @@
       const info = P.info;
       const warm = P.steps.filter((s) => s.type === "card" && s.warm).length;
       let rows;
-      if (info.kind === "round") {
+      if (info.kind === "round" || info.kind === "wordset") {
         rows = [];
         if (warm) rows.push(["repeat", "Aquecimento", plural(warm, "revisão vencida", "revisões vencidas"), "3 min"]);
         rows = rows.concat([
-          ["layers", "25 palavras em 5 grupos", info.words.slice(0, 8).map((i) => S.word(i).en).join(", ") + "…", "12 min"],
+          ["layers", info.words.length + " palavras em " + Math.ceil(info.words.length / 5) + " grupos", info.words.slice(0, 8).map((i) => S.word(i).en).join(", ") + "…", "12 min"],
           ["headphones", "Shadowing", "3 frases para ouvir e repetir", "2 min"],
           ["mic", "Fale em inglês", "3 frases do português para o inglês", "2 min"]
         ]);
         if (P.steps.some((s) => s.type === "talk")) rows.push(["chat", "Conversa com IA", "Use as palavras da rodada", "3 min"]);
       } else if (info.kind === "check") {
         rows = [["trophy", "30 palavras do bloco", "Você vê em português e diz em inglês", "8 min"], ["repeat", "Conta como revisão", "Acertos sobem de caixa; erros voltam para a 1", ""]];
+      } else if (info.etapa && info.kind !== "grammar") {
+        rows = etapaIntroRows(info);
       } else {
         const nEx = P.steps.filter((s) => s.type === "choice" || s.type === "order").length;
         rows = (info.review ? [] : [["book", "Explicação", "Regras com tabela, em português", "2 min"], ["speaker", "Exemplos com áudio", "Ouça e repita", "1 min"]]).concat([
           ["zap", nEx + " exercícios", "Complete, escolha e monte frases", info.review ? "5 min" : "3 min"],
-          ["headphones", "Shadowing e fale em inglês", "Frases com o verbo to be", "2 min"]
+          ["headphones", "Shadowing e fale em inglês", info.kind === "grammar" ? "Frases com do, does e did" : "Frases com o verbo to be", "2 min"]
         ]);
-        if (P.steps.some((s) => s.type === "talk")) rows.push(["chat", "Conversa com IA", "Pratique o verbo to be conversando", "3 min"]);
+        if (P.steps.some((s) => s.type === "talk")) rows.push(["chat", "Conversa com IA", info.kind === "grammar" ? "Pratique perguntas com do e did" : "Pratique o verbo to be conversando", "3 min"]);
       }
-      el.innerHTML = '<div class="step-head">' + eyebrow(info.kind === "tobe" ? "Verbo to be · " + esc(info.label) + " · " + info.est : esc(info.label) + " · Bloco " + info.block + " · " + info.est) +
+      el.innerHTML = '<div class="step-head">' + eyebrow(info.etapa ? esc(info.label) + " · " + info.est : info.kind === "tobe" ? "Verbo to be · " + esc(info.label) + " · " + info.est : esc(info.label) + " · Bloco " + info.block + " · " + info.est) +
         '<h1 class="title1">' + esc(info.title) + "</h1>" +
-        (info.kind === "round" ? '<p class="body secondary">Palavras ' + (info.words[0] + 1) + " a " + (info.words[24] + 1) + " das 500.</p>" : info.kind === "tobe" ? '<p class="body secondary">' + esc(info.sub) + ".</p>" : "") + "</div>" +
+        (info.etapa ? '<p class="body secondary">' + esc(dot(info.sub)) + "</p>" : info.kind === "round" ? '<p class="body secondary">Palavras ' + (info.words[0] + 1) + " a " + (info.words[24] + 1) + " das 500.</p>" : info.kind === "tobe" ? '<p class="body secondary">' + esc(info.sub) + ".</p>" : "") + "</div>" +
         list(rows.map((r) => cell({ icon: r[0], title: r[1], sub: esc(r[2]), value: r[3] })), "icons");
       setFoot(primary("Começar"));
     },
 
     explain(step, el) {
-      const l = tobeLesson(step.lid);
-      el.innerHTML = '<div class="step-head">' + eyebrow("Verbo to be · explicação") + '<h1 class="title1">' + esc(l.title) + '</h1><p class="body secondary">' + esc(l.sub) + ".</p></div>" +
+      const l = grammarLesson(step.lid);
+      el.innerHTML = '<div class="step-head">' + eyebrow(trailName(step.lid) + " · explicação") + '<h1 class="title1">' + esc(l.title) + '</h1><p class="body secondary">' + esc(l.sub) + ".</p></div>" +
         list(l.points.map((pt, k) => cell({ lead: '<span class="wbadge">' + (k + 1) + "</span>", title: esc(pt) })), "icons") +
         (l.table ? '<div class="card table-wrap"><table class="cola-table"><tbody>' + l.table.map((r) => "<tr>" + r.map((c, k) => (k ? "<td>" : '<th scope="row">') + esc(c) + (k ? "</td>" : "</th>")).join("") + "</tr>").join("") + "</tbody></table></div>" : "");
       setFoot(primary("Entendi"));
     },
 
     examples(step, el) {
-      const l = tobeLesson(step.lid);
-      el.innerHTML = '<div class="step-head">' + eyebrow("Verbo to be · exemplos") + '<h1 class="title1">Ouça e repita.</h1><p class="body secondary">Toque no alto-falante de cada frase e repita em voz alta.</p></div>' +
+      const l = grammarLesson(step.lid);
+      el.innerHTML = '<div class="step-head">' + eyebrow(trailName(step.lid) + " · exemplos") + '<h1 class="title1">Ouça e repita.</h1><p class="body secondary">Toque no alto-falante de cada frase e repita em voz alta.</p></div>' +
         list(l.examples.map((x) => cell({ lead: speakBtn(x[0], "", "Ouvir"), title: esc(x[0]), sub: esc(x[1]), lang: "en" })), "icons");
       setFoot(primary("Continuar"));
     },
@@ -1088,7 +1560,7 @@
       step.dirUsed = dir;
       const n = P.steps.slice(0, P.i + 1).filter((s) => s.type === "card").length;
       const total = P.steps.filter((s) => s.type === "card").length;
-      const lbl = step.check ? "Prova" : step.warm ? "Aquecimento" : P.kind === "left" ? "Maratona" : "Revisão";
+      const lbl = step.check ? "Prova" : step.warm ? "Aquecimento" : P.kind === "deck" ? "Cards" : P.kind === "left" ? "Maratona" : "Revisão";
       const front = dir === "pt"
         ? '<p class="eyebrow">Diga em inglês</p><p class="word-en">' + esc(w.pt) + "</p>" + micButton("mic-card")
         : '<p class="word-en" lang="en">' + esc(w.en) + "</p>" + speakBtn(w.en, "lg", "Ouvir " + w.en);
@@ -1109,7 +1581,7 @@
       const w = S.word(step.i);
       S.introduce(step.i);
       el.innerHTML =
-        '<div class="step-head">' + eyebrow("Palavra " + step.n + " de 25 · grupo " + step.g + " · Nº " + (step.i + 1)) + "</div>" +
+        '<div class="step-head">' + eyebrow("Palavra " + step.n + " de " + (step.of || 25) + " · grupo " + step.g + " · Nº " + (step.i + 1)) + "</div>" +
         '<div class="word-card"><div class="word-top"><p class="word-en" style="min-width:0"><span lang="en">' + esc(dot(w.en)) + '</span><span class="word-pt">' + esc(dot(w.pt)) + "</span></p>" + speakBtn(w.en, "lg", "Ouvir " + w.en) + "</div>" +
         '<div class="controls"><button class="btn btn-capsule" data-action="speak" data-text="' + esc(w.en) + '" data-rate="0.6">Devagar</button>' + micButton("mic-word", ' data-i="' + step.i + '"') + "</div>" +
         '<div class="mic-result" id="mic-result" hidden></div>' +
@@ -1158,7 +1630,7 @@
     talk(step, el) {
       el.innerHTML = '<div class="step-head">' + eyebrow("Conversa com IA") +
         '<h1 class="title2">Converse em inglês.</h1>' +
-        '<p class="body secondary">' + (step.tobe ? "Responda com frases curtas usando o verbo to be. A IA corrige com uma dica em português." : "Responda com frases curtas. Use as palavras da rodada. A IA corrige com uma dica em português.") + "</p></div>" +
+        '<p class="body secondary">' + (step.dialog ? "Ensaie a cena: a IA faz o papel de " + esc(etapaById[step.dialog].who.toLowerCase()) + ". Responda em inglês; ela corrige com uma dica em português." : step.etapa ? "Responda usando as frases desta etapa. A IA corrige com uma dica em português." : step.tobe ? (step.tobe[0] === "d" ? "Responda com frases completas usando do, does ou did. A IA corrige com uma dica em português." : "Responda com frases curtas usando o verbo to be. A IA corrige com uma dica em português.") : "Responda com frases curtas. Use as palavras da rodada. A IA corrige com uma dica em português.") + "</p></div>" +
         '<div class="chat" id="chat" aria-live="polite"></div>' +
         '<div class="composer"><label class="sr-only" for="talk-box">Sua resposta em inglês</label><textarea id="talk-box" data-input="talk" lang="en" rows="2" placeholder="Answer in English…"></textarea>' +
         (SP.hasMic ? '<button class="speak" data-action="talk-mic" aria-label="Falar">' + icon("mic") + "</button>" : "") +
@@ -1168,13 +1640,96 @@
       if (!step.msgs.length && !step.busy) aiTurn(step);
     },
 
+    phrase(step, el) {
+      S.pintroduce(step.pid);
+      el.innerHTML =
+        '<div class="step-head">' + eyebrow("Frase " + step.n + " de " + step.of) + "</div>" +
+        '<div class="word-card"><div class="word-top"><p class="phrase-en" style="min-width:0"><span lang="en">' + esc(step.en) + '</span><span class="word-pt">' + esc(step.pt) + "</span></p>" + speakBtn(step.en, "lg", "Ouvir") + "</div>" +
+        '<div class="controls"><button class="btn btn-capsule" data-action="speak" data-text="' + esc(step.en) + '" data-rate="0.6">Devagar</button>' + micButton("mic-text", ' data-text="' + esc(step.en) + '"') + "</div>" +
+        '<div class="mic-result" id="mic-result" hidden></div>' +
+        '<div class="field-note"><label class="eyebrow" for="pnote">Anotação (opcional)</label><input class="note-box" id="pnote" data-input="pnote" data-pid="' + step.pid + '" value="' + esc(S.state.pnotes[step.pid] || "") + '" placeholder="Quando usar, uma frase sua, um macete" autocomplete="off"></div>' +
+        "</div>" +
+        '<p class="footnote secondary center">Ouça, repita em voz alta duas vezes e anote se quiser.</p>';
+      setFoot(primary("Continuar"));
+      autoSpeak(step.en);
+    },
+
+    pcard(step, el) {
+      const c = S.pcard(step.pid) || { box: 1 };
+      const dir = c.box >= 2 ? "pt" : "en";
+      step.dirUsed = dir;
+      const isCard = (x) => x.type === "card" || x.type === "pcard";
+      const n = P.steps.slice(0, P.i + 1).filter(isCard).length;
+      const total = P.steps.filter(isCard).length;
+      const note = S.state.pnotes[step.pid];
+      const front = dir === "pt"
+        ? '<p class="eyebrow">Diga em inglês</p><p class="phrase-en">' + esc(step.pt) + "</p>" + micButton("mic-text", ' data-text="' + esc(step.en) + '"')
+        : '<p class="phrase-en" lang="en">' + esc(step.en) + "</p>" + speakBtn(step.en, "lg", "Ouvir");
+      const back = dir === "pt"
+        ? '<p class="title2" lang="en">' + esc(step.en) + "</p>" + speakBtn(step.en, "", "Ouvir")
+        : '<p class="title2 steel">' + esc(step.pt) + "</p>";
+      el.innerHTML =
+        '<div class="step-head">' + eyebrow((P.kind === "deck" ? "Cards" : "Frases") + " · " + n + " de " + total + " · caixa " + c.box) + "</div>" +
+        '<div class="flash">' + front + '<div class="mic-result" id="mic-result" hidden></div>' +
+        '<div class="answer" id="flash-answer" hidden>' + back + (note ? '<p class="footnote secondary">Sua nota: ' + esc(note) + "</p>" : "") + "</div></div>" +
+        '<p class="footnote secondary center" id="flash-hint">' + (dir === "pt" ? "Lembre a frase em inglês e diga em voz alta." : "Lembre o significado antes de mostrar a resposta.") + "</p>";
+      setFoot(primary("Mostrar resposta", { action: "reveal-p" }));
+      if (dir === "en") autoSpeak(step.en);
+    },
+
+    dialog(step, el) {
+      const e = etapaById[step.eid];
+      el.innerHTML = '<div class="step-head">' + eyebrow("Situação · ouça a conversa") + '<h1 class="title1">' + esc(e.name) + "</h1>" +
+        '<p class="body secondary">' + esc(e.desc) + " Você conversa com: " + esc(e.who.toLowerCase()) + ".</p></div>" +
+        '<div class="controls"><button class="btn btn-filled btn-capsule" data-action="play-dialog" data-eid="' + e.id + '">' + icon("play") + "Ouvir a conversa</button></div>" +
+        dialogHtml(e);
+      setFoot(primary("Agora é a sua vez"));
+    },
+
+    line(step, el) {
+      const e = etapaById[step.eid];
+      el.innerHTML = '<div class="step-head">' + eyebrow("Sua vez · fala " + step.k + " de " + step.n) + "</div>" +
+        (step.prevEn ? '<div class="chat dialog">' + bubbleHtml(e, ["o", step.prevEn, step.prevPt]) + "</div>" : "") +
+        '<div class="say-card"><p class="eyebrow">Responda em inglês</p><h1 class="title2">' + esc(step.pt) + "</h1>" +
+        '<div class="controls">' + micButton("mic-sentence") + '<button class="btn btn-capsule" data-action="hint" data-text="' + esc(step.en) + '">Dica</button></div>' +
+        '<div class="mic-result" id="mic-result" hidden></div></div>' +
+        '<div class="shadow-card" id="speak-answer" hidden><p class="title2" lang="en">' + esc(step.en) + "</p>" +
+        '<div class="controls"><button class="btn btn-filled btn-capsule" data-action="speak" data-text="' + esc(step.en) + '">' + icon("play") + "Ouvir</button>" +
+        '<button class="btn btn-capsule" data-action="speak" data-text="' + esc(step.en) + '" data-rate="0.6">Devagar</button></div></div>';
+      setFoot(primary("Mostrar a fala", { action: "reveal-sentence" }));
+      if (step.prevEn) autoSpeak(step.prevEn);
+    },
+
+    extras(step, el) {
+      const e = etapaById[step.eid];
+      e.extra.forEach((_, j) => S.pintroduce(pidOf(e, e.mine.length + j)));
+      el.innerHTML = '<div class="step-head">' + eyebrow("Outras frases úteis") + '<h1 class="title1">Na mesma situação.</h1>' +
+        '<p class="body secondary">Ouça e repita. Elas também entram nos seus cards.</p></div>' +
+        list(e.extra.map((x) => cell({ lead: speakBtn(x[0], "", "Ouvir"), title: esc(x[0]), sub: esc(x[1]), lang: "en" })), "icons");
+      setFoot(primary("Continuar"));
+    },
+
+    forms(step, el) {
+      const v = etapaById[step.eid].verbs[step.v];
+      const forms = window.drillForms(v);
+      const groups = [["Eu e você · presente", 0], ["Ela · presente", 3], ["Passado (did)", 6]];
+      el.innerHTML = '<div class="step-head">' + eyebrow("Verbo " + step.n + " de " + step.of) +
+        '<h1 class="title1"><span lang="en">' + esc(v[0]) + " · " + esc(v[2]) + "</span></h1>" +
+        '<p class="body secondary">Ouça e repita as 9 frases em voz alta. Repare onde entra o do, o does e o did.</p></div>' +
+        groups.map((g) => section(g[0], list(forms.slice(g[1], g[1] + 3).map((f) => cell({ lead: speakBtn(f.en, "", "Ouvir"), title: esc(f.en), sub: esc(f.pt), lang: "en" })), "icons"))).join("");
+      setFoot(primary("Continuar"));
+    },
+
     finish(step, el) {
       const c = S.counts();
       let title, lead, stats;
       if (P.mode === "review") {
-        title = P.kind === "left" ? "Maratona concluída" : "Revisão concluída";
-        lead = c.learned >= S.N ? "Você fixou as 500 palavras." : "Faltam " + (S.N - c.learned) + " para fixar as 500.";
-        stats = [[P.reviewed, "palavras"], [P.easy, "acertos"], [c.learned, "fixadas"]];
+        const cards = P.kind === "deck" || P.kind === "phrases";
+        title = P.kind === "left" ? "Maratona concluída" : P.kind === "deck" ? "Cards concluídos" : P.kind === "phrases" ? "Revisão de frases concluída" : "Revisão concluída";
+        lead = cards ? "Você lembrou " + P.easy + " de " + P.reviewed + ". As que você errou voltam antes." : c.learned >= S.N ? "Você fixou as " + S.N + " palavras." : "Você já fixou " + c.learned + " de " + S.N + " palavras.";
+        stats = [[P.reviewed, cards ? "cards" : "palavras"], [P.easy, "acertos"], cards ? [S.pcounts().learned, "frases fixadas"] : [c.learned, "fixadas"]];
+      } else if (P.info.etapa) {
+        ({ title, lead, stats } = etapaFinish());
       } else if (P.info.kind === "check") {
         title = "Prova do bloco " + P.info.n + " concluída";
         lead = "Você lembrou " + P.easy + " de " + P.reviewed + " em inglês.";
@@ -1193,7 +1748,11 @@
         '<h1 class="title1">' + esc(title) + '</h1><p class="body secondary">' + esc(lead) + "</p></div>" +
         '<div class="summary center">' + stats.map((s) => "<div><b>" + s[0] + "</b><small>" + s[1] + "</small></div>").join("") + "</div>";
       const nid = S.nextId();
-      const ghost = S.breakDue() ? ["finish-break", "Fazer pausa de 10 min"] : P.mode === "node" && nid ? ["next-node", "Próxima etapa"] : null;
+      let ghost = S.breakDue() ? ["finish-break", "Fazer pausa de 10 min"] : P.mode === "node" && nid && !P.info.etapa ? ["next-node", "Próxima etapa"] : null;
+      if (!ghost && P.mode === "node" && P.info.etapa) {
+        P.nextTarget = etapaNextTarget(P.info.etapa, P.id);
+        if (P.nextTarget) ghost = ["etapa-next", P.nextTarget.label];
+      }
       setFoot(primary("Concluído", { action: "player-done", ghost }));
       haptic(20);
     }
@@ -1218,10 +1777,18 @@
 
   /* ───────── Conversa com IA ───────── */
   function talkRules(step) {
-    const l = step.tobe ? tobeLesson(step.tobe) : null;
-    const focus = l
-      ? "Today the learner is practicing the verb TO BE. Lesson: \"" + l.title + "\" (" + l.sub + "). Ask questions that make the learner answer with this form of the verb to be (am, is, are, was, were, will be, there is, there are). In \"tip\", focus on the verb to be.\n"
-      : "Words from the current round: " + step.words.map((i) => S.word(i).en).join(", ") + ".\n";
+    const l = step.tobe ? grammarLesson(step.tobe) : null;
+    const dlg = step.dialog ? etapaById[step.dialog] : null;
+    const ph = step.etapa ? etapaById[step.etapa] : null;
+    const focus = dlg
+      ? "ROLE-PLAY. Situation: " + dlg.name + ". You play: " + dlg.who + ". The learner plays themself, a Brazilian. Stay in character and move the scene forward with one short line or question at a time. Reference conversation:\n" + dlg.lines.map((x) => (x[0] === "v" ? "Learner: " : "You: ") + x[1]).join("\n") + "\n"
+      : ph
+        ? "Today's ready-made phrases. Create small situations where the learner can use them: " + ph.phrases.map((x) => x[0]).join(" | ") + "\n"
+        : l && l.id[0] === "d"
+          ? "Today the learner is practicing DO, DOES and DID. Lesson: \"" + l.title + "\" (" + l.sub + "). Ask simple questions in the present or the past (Do you...? Does she...? Did you...?) that make the learner answer with full sentences. In \"tip\", focus on do, does, did and the base form of the verb.\n"
+          : l
+            ? "Today the learner is practicing the verb TO BE. Lesson: \"" + l.title + "\" (" + l.sub + "). Ask questions that make the learner answer with this form of the verb to be (am, is, are, was, were, will be, there is, there are). In \"tip\", focus on the verb to be.\n"
+            : "Words from the current round: " + step.words.map((i) => S.word(i).en).join(", ") + ".\n";
     return "You are a warm, patient English conversation partner for a Brazilian beginner (level A1) who is learning English today.\n" + focus +
       "Rules:\n" +
       "- Write simple English with very common words. Use two or three of the round words naturally.\n" +
@@ -1295,6 +1862,7 @@
     P.total += 1;
     if (ok) P.correct += 1;
     if (step.wi != null) S.quiz(step.wi, ok);
+    if (step.pid) S.pquiz(step.pid, ok);
     if (!ok && !step.again && step.type === "choice") {
       let at = P.steps.findIndex((s, k) => k > P.i && s.type !== "choice" && s.type !== "order");
       if (at < 0) at = P.steps.length - 1;
@@ -1316,7 +1884,9 @@
     if (P.mode === "node") {
       const isCheck = P.info.kind === "check";
       const rec = { at: Date.now(), correct: isCheck ? P.easy : P.correct, total: isCheck ? P.reviewed : P.total, min: P.minutes };
-      if (P.info.kind === "tobe") S.state.tobe[P.id] = rec; else S.state.nodes[P.id] = rec;
+      if (P.id.includes(":")) S.state.etapas[P.id] = rec;
+      else if (P.info.kind === "tobe") S.state.tobe[P.id] = rec;
+      else S.state.nodes[P.id] = rec;
       if (P.steps.some((s) => s.type === "talk" && s.msgs.length > 1)) S.state.talks += 1;
       delete S.state.resumes[P.id];
     }
@@ -1395,7 +1965,78 @@
     "end-break"() { endBreak(); },
     "finish-break"() { closePlayer(); openBreak(); },
     "player-close"() { requestClose(); },
-    "player-done"() { const wasTobe = P && P.info && P.info.kind === "tobe"; closePlayer(); const want = wasTobe ? "tobe" : "intensivo"; if (location.hash !== "#" + want) location.hash = want; },
+    "player-done"() {
+      const info = P && P.info;
+      const eid = P && (P.eid || (info && info.etapa && info.etapa.id));
+      const review = P && P.mode === "review" && !eid;
+      closePlayer();
+      if (review) return;
+      const want = eid ? "etapa-" + eid : info && info.kind === "tobe" ? "tobe" : "intensivo";
+      if (location.hash !== "#" + want) location.hash = want;
+    },
+    "go-etapas"() { location.hash = "etapas"; },
+    "etapa-next"() {
+      const t = P && P.nextTarget;
+      closePlayer();
+      if (!t) return;
+      if (t.id) startNode(t.id); else location.hash = t.href;
+    },
+    deck(el) { const e = etapaById[el.dataset.eid]; if (e) openPlayer(buildDeck(e)); },
+    phrase(el) { openPhraseSheet(el.dataset.pid); },
+    "mic-text"(el) { runMic(el, el.dataset.text); },
+    "review-phrases"() { const R = buildPhraseReview(); if (R.steps.length > 1) openPlayer(R); else toast("Nenhuma frase para revisar agora."); },
+    async "copy-etapa"(el) {
+      const text = copyText(etapaById[el.dataset.eid]);
+      try { await navigator.clipboard.writeText(text); toast("Lista copiada. Cole no seu caderno."); }
+      catch (err) {
+        const pre = $("#copy-text");
+        if (pre) { const r = document.createRange(); r.selectNodeContents(pre); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+        toast("Copie o texto selecionado");
+      }
+    },
+    async "play-dialog"(el) {
+      const e = etapaById[el.dataset.eid];
+      if (!e || !SP.hasTTS) { toast("Áudio indisponível neste navegador."); return; }
+      if (dialogPlaying) { dialogPlaying = null; SP.stop(); return; }
+      const token = {};
+      dialogPlaying = token;
+      el.classList.add("playing");
+      for (let k = 0; k < e.lines.length && dialogPlaying === token; k++) {
+        const b = document.querySelector('.dialog [data-line="' + k + '"]');
+        if (b) { b.classList.add("speaking"); b.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+        await SP.speak(e.lines[k][1]);
+        if (b) b.classList.remove("speaking");
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      if (dialogPlaying === token) dialogPlaying = null;
+      el.classList.remove("playing");
+    },
+    "reveal-p"() {
+      $("#flash-answer").hidden = false;
+      const hint = $("#flash-hint");
+      if (hint) hint.hidden = true;
+      const step = P.steps[P.i];
+      if (step.dirUsed === "pt") SP.speak(step.en);
+      const lab = (g) => "<small>" + S.pintervalLabel(step.pid, g) + "</small>";
+      setFoot('<div class="grades">' +
+        '<button class="grade again" data-action="pgrade" data-g="again">Errei' + lab("again") + "</button>" +
+        '<button class="grade hard" data-action="pgrade" data-g="hard">Difícil' + lab("hard") + "</button>" +
+        '<button class="grade easy" data-action="pgrade" data-g="easy" data-primary>Acertei' + lab("easy") + "</button></div>");
+    },
+    pgrade(el) {
+      const step = P.steps[P.i];
+      const g = el.dataset.g;
+      S.pgrade(step.pid, g);
+      P.reviewed += 1;
+      if (g === "easy") P.easy += 1;
+      if (g === "again" && !step.again) {
+        const at = P.steps.findIndex((s, k) => k > P.i && s.type !== "card" && s.type !== "pcard");
+        P.steps.splice(at < 0 ? P.steps.length - 1 : at, 0, Object.assign({}, step, { again: true }));
+      }
+      S.save();
+      haptic(10);
+      next();
+    },
     "next-node"() { const nid = S.nextId(); closePlayer(); if (nid) startNode(nid); },
     next() { next(); },
     skip() { next(); },
@@ -1471,6 +2112,7 @@
     },
     "reveal-sentence"() {
       const step = P.steps[P.i];
+      if (step.pid) S.pintroduce(step.pid);
       $("#speak-answer").hidden = false;
       SP.speak(sentenceOf(step).ex);
       S.state.spoken += 1;
@@ -1524,7 +2166,7 @@
     },
     async "mark-upto"() {
       const n = Math.floor(+($("#upto") || {}).value);
-      if (!(n >= 1 && n <= S.N)) { toast("Digite um número de 1 a 500."); return; }
+      if (!(n >= 1 && n <= S.CORE)) { toast("Digite um número de 1 a 500."); return; }
       const ok = await alertDialog({ title: "Registrar até a palavra " + n + "?", text: "As palavras 1 a " + n + " entram como estudadas e vão para revisão agora. As rodadas completas ficam marcadas como feitas.", ok: "Registrar", cancel: "Cancelar" });
       if (!ok) return;
       S.markStudiedUpTo(n);
@@ -1571,6 +2213,12 @@
       return;
     }
     if (kind === "pad") { S.state.pad = el.value; saveSoon(); return; }
+    if (kind === "pnote") {
+      const v = el.value.trim();
+      if (v) S.state.pnotes[el.dataset.pid] = el.value; else delete S.state.pnotes[el.dataset.pid];
+      saveSoon();
+      return;
+    }
     if (kind === "name") { S.state.profile.name = el.value.trim(); saveSoon(); }
   });
 
@@ -1609,7 +2257,7 @@
     if (tag === "textarea" && step.type === "talk" && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendTalk(); return; }
     if (tag === "textarea" || tag === "input" || tag === "select") return;
     if (/^[1-4]$/.test(e.key)) {
-      const sel = step.type === "choice" && !step.answered ? "#player .opt" : step.type === "card" ? "#player .grade" : null;
+      const sel = step.type === "choice" && !step.answered ? "#player .opt" : step.type === "card" || step.type === "pcard" ? "#player .grade" : null;
       const b = sel && $$(sel)[+e.key - 1];
       if (b) { e.preventDefault(); b.click(); }
       return;

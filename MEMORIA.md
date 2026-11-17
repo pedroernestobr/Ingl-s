@@ -1,9 +1,22 @@
-# Memória do projeto: Intensivo 500
+# Memória do projeto: Intensivo 1000
 
 Notas para retomar o trabalho em outra sessão. Atualizado em 17/11/2026.
 
 ## O que é
-App web estático (HTML, CSS e JavaScript, sem build) para aprender as 500 palavras mais usadas do inglês e o verbo to be completo em um dia de 8 horas. Idioma do app e das conversas: português do Brasil.
+App web estático (HTML, CSS e JavaScript, sem build) para aprender inglês. Idioma do app e das conversas: português do Brasil.
+
+- **Intensivo de 8 horas:** as 500 palavras mais usadas e o verbo to be.
+- **Aba Etapas:** mais 500 palavras por área (total de 1000), frases prontas, o método do/does/did e 15 situações em diálogo.
+- **Formato:** 55 etapas em cards, divididas em 8 partes.
+
+Pedidos do aluno que guiaram as etapas:
+- números, cores e frutas;
+- estruturas básicas ("método DID DO");
+- tudo em etapas, em cards;
+- frases da rotina;
+- conversas simuladas, como balada, academia e restaurante;
+- áreas: negócios, startups, relacionamentos, aeroporto e comida;
+- formato que dê para anotar.
 
 - Link do Claude (onde o aluno estuda hoje): https://claude.ai/artifact/TuMyBkwUWUGs8rdgHFmwtF (versão 7)
 - Repositório: https://github.com/pedroernestobr/Ingl-s, branch `claude/trusting-allen-3uylp6`
@@ -16,8 +29,13 @@ App web estático (HTML, CSS e JavaScript, sem build) para aprender as 500 palav
 - O progresso chega à nuvem alguns segundos depois de cada mudança. Ao abrir o app, ele também sobe (corrigido no commit `7d761f1`).
 
 ## Estado em 17/11/2026
-- Último commit no branch: `7d761f1`, que envia ao abrir o app o progresso de versões antigas.
-- Versão do cache offline (`sw.js`): `intensivo500-v3`.
+- **Etapas:**
+  - O estado novo fica em `etapas` (sessões concluídas: `w:`, `f:`, `s:`, `g:`, `k:` + id), `pcards` (frases, chave `etapa.n`) e `pnotes`.
+  - As palavras novas ficam nas posições 500 a 999 de `window.WORDS`, acrescentadas por `js/areas.js`. Só acrescente no fim.
+- **Intensivo:** continua contando só as 500 essenciais (`S.CORE`). O total geral é `S.N` = 1000.
+- **Botão Voltar:** aparece em todas as telas. A pausa tem um X.
+- **Nuvem:** o envio espera 2,5 s sem mudanças, mas nunca adia mais de 10 s.
+- **Cache offline (`sw.js`):** versão `intensivo500-v5`.
 - Verificado na conta do Claude às 21h17 (horário de Brasília): 25 palavras estudadas, 1 fixada, perfil "Pedro".
 - O aluno disse estar no bloco 49. O contador mostra 25. Não ficou claro se é diferença real ou falta de registro. A solução é o campo "Já estudei até a palavra nº" em Ajustes.
 - Supabase: 0 registros na checagem do dia 16/11. Isso é esperado, porque o aluno estudou pelo link do Claude.
@@ -30,6 +48,7 @@ App web estático (HTML, CSS e JavaScript, sem build) para aprender as 500 palav
 ## Estrutura do código
 - `index.html`: entrada. Carrega `css/styles.css` e os scripts em ordem: config, words, tobe, store, sync, speech, app.
 - `js/words.js`: as 500 palavras em blocos e rodadas.
+- `js/areas.js`, `js/dodid.js`, `js/situacoes.js`: as etapas por área, o método do/does/did e os diálogos.
 - `js/tobe.js`: a trilha de 11 lições do verbo to be.
 - `js/store.js`: progresso, revisão espaçada (caixas de Leitner em minutos), cronômetro e posição de cada etapa.
 - `js/sync.js`: sincronização com Supabase ou com o banco do Claude.
